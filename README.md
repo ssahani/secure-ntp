@@ -70,18 +70,14 @@ To build in directory build/:
     or
     - `meson build/ && ninja -C build`
 
-Useful commands:
-----------------
-  * `ninja -v some/target`
-  * `ninja test`
-  * `sudo ninja install`
-  * `DESTDIR=... ninja install`
-  * `make DEBUG=YES`
-
 Example configration
 ------------
 
 ```
+❯ sudo useradd nts-timesync -G nts-timesync -M
+
+❯ sudo chown nts-timesync:nts-timesync -R /etc/nts-timesync
+
 ❯ sudo cat /etc/nts-timesync/nts-timesyncd.conf
 
 [Time]
@@ -91,6 +87,5 @@ NetworkTimeSecurityServer=time.cloudflare.com nts.sth1.ntp.se nts.netnod.se
 #RootDistanceMaxSec=5
 #PollIntervalMinSec=32
 #PollIntervalMaxSec=2048
-ConnectionRetrySec=5
 
 ```

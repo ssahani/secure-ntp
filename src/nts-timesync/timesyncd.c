@@ -91,7 +91,7 @@ settime:
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         _cleanup_(notify_on_cleanup) const char *notify_message = NULL;
-        const char *user = "systemd-timesync";
+        const char *user = "nts-timesync";
         uid_t uid, uid_current;
         gid_t gid;
         int r;
