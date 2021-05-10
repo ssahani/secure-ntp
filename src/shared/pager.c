@@ -34,43 +34,6 @@ static int stored_stderr = -1;
 static bool stdout_redirected = false;
 static bool stderr_redirected = false;
 
-static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
-        _cleanup_fclose_ FILE *file = NULL;
-        _cleanup_free_ char *line = NULL;
-        int r;
-
-        assert(exe_name_fd >= 0);
-        assert(less_opts);
-
-        /* This takes ownership of exe_name_fd */
-        file = fdopen(exe_name_fd, "r");
-        if (!file) {
-                safe_close(exe_name_fd);
-                return log_error_errno(errno, "Failed to create FILE object: %m");
-        }
-
-        /* Find the last line */
-        for (;;) {
-                _cleanup_free_ char *t = NULL;
-
-                r = read_line(file, LONG_LINE_MAX, &t);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read from socket: %m");
-                if (r == 0)
-                        break;
-
-                free_and_replace(line, t);
-        }
-
-        /* We only treat "less" specially.
-         * Return true whenever option K is *not* set. */
-        r = streq_ptr(line, "less") && !strchr(less_opts, 'K');
-
-        log_debug("Pager executable is \"%s\", options \"%s\", quit_on_interrupt: %s",
-                  strnull(line), less_opts, yes_no(!r));
-        return r;
-}
-
 void pager_close(void) {
 
         if (pager_pid <= 0)

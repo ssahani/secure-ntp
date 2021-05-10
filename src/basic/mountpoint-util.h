@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <fcntl.h>
@@ -12,18 +12,18 @@ int path_get_mnt_id(const char *path, int *ret);
 int fd_is_mount_point(int fd, const char *filename, int flags);
 int path_is_mount_point(const char *path, const char *root, int flags);
 
-#if 0 /// UNNEEDED by elogind
 bool fstype_is_network(const char *fstype);
 bool fstype_is_api_vfs(const char *fstype);
 bool fstype_is_blockdev_backed(const char *fstype);
 bool fstype_is_ro(const char *fsype);
 bool fstype_can_discard(const char *fstype);
 bool fstype_can_uid_gid(const char *fstype);
-#endif // 0
 
 int dev_is_devtmpfs(void);
 
 const char *mount_propagation_flags_to_string(unsigned long flags);
-#if 0 /// UNNEEDED by elogind
 int mount_propagation_flags_from_string(const char *name, unsigned long *ret);
-#endif // 0
+
+/* Creates a mount point (not parents) based on the source path or stat - ie, a file or a directory */
+int make_mount_point_inode_from_stat(const struct stat *st, const char *dest, mode_t mode);
+int make_mount_point_inode_from_path(const char *source, const char *dest, mode_t mode);

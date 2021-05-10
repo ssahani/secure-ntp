@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-//#include <malloc.h>
+#include <malloc.h>
 #include <stdint.h>
 #include <string.h>
 

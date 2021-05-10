@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
 #include <errno.h>
@@ -11,11 +11,13 @@
 #include "conf-files.h"
 #include "env-file.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "serialize.h"
@@ -32,8 +34,7 @@
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
-static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
-
+static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid, bool set_systemd_exec_pid) {
         pid_t _pid;
         int r;
 
@@ -55,6 +56,12 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 }
 
                 (void) rlimit_nofile_safe();
+
+                if (set_systemd_exec_pid) {
+                        r = setenv_systemd_exec_pid(false);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set $SYSTEMD_EXEC_PID, ignoring: %m");
+                }
 
                 if (!argv) {
                         _argv[0] = (char*) path;
@@ -119,11 +126,7 @@ static int do_execute(
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
                 _cleanup_close_ int fd = -1;
-#if 0 /// No "maybe uninitialized" warning in elogind
                 pid_t pid;
-#else // 0
-                pid_t pid = 0;
-#endif // 0
 
                 t = strdup(*path);
                 if (!t)
@@ -135,7 +138,7 @@ static int do_execute(
                                 return log_error_errno(fd, "Failed to open serialization file: %m");
                 }
 
-                r = do_spawn(t, argv, fd, &pid);
+                r = do_spawn(t, argv, fd, &pid, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID));
                 if (r <= 0)
                         continue;
 
@@ -250,203 +253,3 @@ int execute_directories(
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
-static int gather_environment_generate(int fd, void *arg) {
-        char ***env = arg, **x, **y;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **new = NULL;
-        int r;
-
-        /* Read a series of VAR=value assignments from fd, use them to update the list of
-         * variables in env. Also update the exported environment.
-         *
-         * fd is always consumed, even on error.
-         */
-
-        assert(env);
-
-        f = fdopen(fd, "r");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        r = load_env_file_pairs(f, NULL, &new);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH_PAIR(x, y, new) {
-                char *p;
-
-                if (!env_name_is_valid(*x)) {
-                        log_warning("Invalid variable assignment \"%s=...\", ignoring.", *x);
-                        continue;
-                }
-
-                p = strjoin(*x, "=", *y);
-                if (!p)
-                        return -ENOMEM;
-
-                r = strv_env_replace(env, p);
-                if (r < 0)
-                        return r;
-
-                if (setenv(*x, *y, true) < 0)
-                        return -errno;
-        }
-
-        return r;
-}
-
-static int gather_environment_collect(int fd, void *arg) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char ***env = arg;
-        int r;
-
-        /* Write out a series of env=cescape(VAR=value) assignments to fd. */
-
-        assert(env);
-
-        f = fdopen(fd, "w");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        r = serialize_strv(f, "env", *env);
-        if (r < 0)
-                return r;
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
-static int gather_environment_consume(int fd, void *arg) {
-        _cleanup_fclose_ FILE *f = NULL;
-        char ***env = arg;
-        int r = 0;
-
-        /* Read a series of env=cescape(VAR=value) assignments from fd into env. */
-
-        assert(env);
-
-        f = fdopen(fd, "r");
-        if (!f) {
-                safe_close(fd);
-                return -errno;
-        }
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                const char *v;
-                int k;
-
-                k = read_line(f, LONG_LINE_MAX, &line);
-                if (k < 0)
-                        return k;
-                if (k == 0)
-                        break;
-
-                v = startswith(line, "env=");
-                if (!v) {
-                        log_debug("Serialization line \"%s\" unexpectedly didn't start with \"env=\".", line);
-                        if (r == 0)
-                                r = -EINVAL;
-
-                        continue;
-                }
-
-                k = deserialize_environment(v, env);
-                if (k < 0) {
-                        log_debug_errno(k, "Invalid serialization line \"%s\": %m", line);
-
-                        if (r == 0)
-                                r = k;
-                }
-        }
-
-        return r;
-}
-
-int exec_command_flags_from_strv(char **ex_opts, ExecCommandFlags *flags) {
-        ExecCommandFlags ex_flag, ret_flags = 0;
-        char **opt;
-
-        assert(flags);
-
-        STRV_FOREACH(opt, ex_opts) {
-                ex_flag = exec_command_flags_from_string(*opt);
-                if (ex_flag >= 0)
-                        ret_flags |= ex_flag;
-                else
-                        return -EINVAL;
-        }
-
-        *flags = ret_flags;
-
-        return 0;
-}
-
-int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ex_opts) {
-        _cleanup_strv_free_ char **ret_opts = NULL;
-        ExecCommandFlags it = flags;
-        const char *str;
-        int i, r;
-
-        assert(ex_opts);
-
-        for (i = 0; it != 0; it &= ~(1 << i), i++) {
-                if (FLAGS_SET(flags, (1 << i))) {
-                        str = exec_command_flags_to_string(1 << i);
-                        if (!str)
-                                return -EINVAL;
-
-                        r = strv_extend(&ret_opts, str);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        *ex_opts = TAKE_PTR(ret_opts);
-
-        return 0;
-}
-
-const gather_stdout_callback_t gather_environment[] = {
-        gather_environment_generate,
-        gather_environment_collect,
-        gather_environment_consume,
-};
-
-static const char* const exec_command_strings[] = {
-        "ignore-failure", /* EXEC_COMMAND_IGNORE_FAILURE */
-        "privileged",     /* EXEC_COMMAND_FULLY_PRIVILEGED */
-        "no-setuid",      /* EXEC_COMMAND_NO_SETUID */
-        "ambient",        /* EXEC_COMMAND_AMBIENT_MAGIC */
-        "no-env-expand",  /* EXEC_COMMAND_NO_ENV_EXPAND */
-};
-
-const char* exec_command_flags_to_string(ExecCommandFlags i) {
-        size_t idx;
-
-        for (idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
-                if (i == (1 << idx))
-                        return exec_command_strings[idx];
-
-        return NULL;
-}
-
-ExecCommandFlags exec_command_flags_from_string(const char *s) {
-        ssize_t idx;
-
-        idx = string_table_lookup(exec_command_strings, ELEMENTSOF(exec_command_strings), s);
-
-        if (idx < 0)
-                return _EXEC_COMMAND_FLAGS_INVALID;
-        else
-                return 1 << idx;
-}
-#endif // 0

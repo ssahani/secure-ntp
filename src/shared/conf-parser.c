@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <limits.h>
@@ -24,6 +24,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "sd-id128.h"
+#include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "string-util.h"
@@ -31,10 +32,6 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
-
-/// Additional includes needed by elogind
-#include "def.h"
-#include "fileio.h"
 
 int config_item_table_lookup(
                 const void *table,
@@ -187,14 +184,12 @@ static int parse_line(
                 k = strlen(l);
                 assert(k > 0);
 
-                if (l[k-1] != ']') {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid section header '%s'", l);
-                        return -EBADMSG;
-                }
+                if (l[k-1] != ']')
+                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EBADMSG), "Invalid section header '%s'", l);
 
                 n = strndup(l+1, k-2);
                 if (!n)
-                        return -ENOMEM;
+                        return log_oom();
 
                 if (sections && !nulstr_contains(sections, n)) {
                         bool ignore = flags & CONFIG_PARSE_RELAXED;
@@ -257,15 +252,16 @@ static int parse_line(
 }
 
 /* Go through the file and parse each line */
-int config_parse(const char *unit,
-                 const char *filename,
-                 FILE *f,
-                 const char *sections,
-                 ConfigItemLookup lookup,
-                 const void *table,
-                 ConfigParseFlags flags,
-                 void *userdata,
-                 usec_t *ret_mtime) {
+int config_parse(
+                const char *unit,
+                const char *filename,
+                FILE *f,
+                const char *sections,
+                ConfigItemLookup lookup,
+                const void *table,
+                ConfigParseFlags flags,
+                void *userdata,
+                usec_t *latest_mtime) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
         _cleanup_fclose_ FILE *ours = NULL;
@@ -276,6 +272,9 @@ int config_parse(const char *unit,
 
         assert(filename);
         assert(lookup);
+
+        /* latest_mtime is an input-output parameter: it will be updated if the mtime of the file we're
+         * looking at is later than the current *latest_mtime value. */
 
         if (!f) {
                 f = ours = fopen(filename, "re");
@@ -299,7 +298,8 @@ int config_parse(const char *unit,
 
                 (void) stat_warn_permissions(filename, &st);
                 mtime = timespec_load(&st.st_mtim);
-        }
+        } else
+                mtime = 0;
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
@@ -346,7 +346,7 @@ int config_parse(const char *unit,
                                 return -ENOBUFS;
                         }
 
-                        if (!strextend(&continuation, l, NULL)) {
+                        if (!strextend(&continuation, l)) {
                                 if (flags & CONFIG_PARSE_WARN)
                                         log_oom();
                                 return -ENOMEM;
@@ -419,14 +419,14 @@ int config_parse(const char *unit,
                 }
         }
 
-        if (ret_mtime)
-                *ret_mtime = mtime;
+        if (latest_mtime)
+                *latest_mtime = MAX(*latest_mtime, mtime);
 
-        return 0;
+        return 1;
 }
 
 static int config_parse_many_files(
-                const char *conf_file,
+                const char* const* conf_files,
                 char **files,
                 const char *sections,
                 ConfigItemLookup lookup,
@@ -439,20 +439,20 @@ static int config_parse_many_files(
         char **fn;
         int r;
 
-        if (conf_file) {
-                r = config_parse(NULL, conf_file, NULL, sections, lookup, table, flags, userdata, &mtime);
+        /* First read the first found main config file. */
+        STRV_FOREACH(fn, (char**) conf_files) {
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &mtime);
                 if (r < 0)
                         return r;
+                if (r > 0)
+                        break;
         }
 
+        /* Then read all the drop-ins. */
         STRV_FOREACH(fn, files) {
-                usec_t t;
-
-                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &t);
+                r = config_parse(NULL, *fn, NULL, sections, lookup, table, flags, userdata, &mtime);
                 if (r < 0)
                         return r;
-                if (t > mtime) /* Find the newest */
-                        mtime = t;
         }
 
         if (ret_mtime)
@@ -479,13 +479,14 @@ int config_parse_many_nulstr(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(STRV_MAKE_CONST(conf_file),
+                                       files, sections, lookup, table, flags, userdata,
+                                       ret_mtime);
 }
 
-#if 0 /// UNNEEDED by elogind
 /* Parse each config file in the directories specified as strv. */
 int config_parse_many(
-                const char *conf_file,
+                const char* const* conf_files,
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
                 const char *sections,
@@ -509,65 +510,24 @@ int config_parse_many(
         if (r < 0)
                 return r;
 
-        return config_parse_many_files(conf_file, files, sections, lookup, table, flags, userdata, ret_mtime);
+        return config_parse_many_files(conf_files, files, sections, lookup, table, flags, userdata, ret_mtime);
 }
-#endif // 0
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
         DEFINE_CONFIG_PARSE_PTR(config_parse_##type, conv_func, vartype, "Failed to parse " #type " value")
 
 DEFINE_PARSER(int, int, safe_atoi);
 DEFINE_PARSER(long, long, safe_atoli);
-#if 0 /// UNNEEDED by elogind
 DEFINE_PARSER(uint8, uint8_t, safe_atou8);
 DEFINE_PARSER(uint16, uint16_t, safe_atou16);
 DEFINE_PARSER(uint32, uint32_t, safe_atou32);
-#endif // 0
 DEFINE_PARSER(int32, int32_t, safe_atoi32);
 DEFINE_PARSER(uint64, uint64_t, safe_atou64);
 DEFINE_PARSER(unsigned, unsigned, safe_atou);
 DEFINE_PARSER(double, double, safe_atod);
-#if 0 /// UNNEEDED by elogind
-DEFINE_PARSER(nsec, nsec_t, parse_nsec);
-#endif // 0
 DEFINE_PARSER(sec, usec_t, parse_sec);
-#if 0 /// UNNEEDED by elogind
-DEFINE_PARSER(sec_def_infinity, usec_t, parse_sec_def_infinity);
-DEFINE_PARSER(mode, mode_t, parse_mode);
 
-int config_parse_iec_size(const char* unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
-
-        size_t *sz = data;
-        uint64_t v;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_size(rvalue, 1024, &v);
-        if (r >= 0 && (uint64_t) (size_t) v != v)
-                r = -ERANGE;
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        *sz = (size_t) v;
-        return 0;
-}
-
-int config_parse_si_uint64(
+int config_parse_bool(
                 const char* unit,
                 const char *filename,
                 unsigned line,
@@ -578,60 +538,6 @@ int config_parse_si_uint64(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
-        uint64_t *sz = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_size(rvalue, 1000, sz);
-        if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
-
-        return 0;
-}
-
-int config_parse_iec_uint64(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *bytes = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_size(rvalue, 1024, bytes);
-        if (r < 0)
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
-
-        return 0;
-}
-#endif // 0
-
-int config_parse_bool(const char* unit,
-                      const char *filename,
-                      unsigned line,
-                      const char *section,
-                      unsigned section_line,
-                      const char *lvalue,
-                      int ltype,
-                      const char *rvalue,
-                      void *data,
-                      void *userdata) {
 
         int k;
         bool *b = data;
@@ -717,7 +623,7 @@ int config_parse_tristate(
                 return 0;
         }
 
-        *t = !!k;
+        *t = k;
         return 0;
 }
 
@@ -740,50 +646,8 @@ int config_parse_string(
         assert(rvalue);
         assert(data);
 
-        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
-                return log_oom();
-
-        return 0;
+        return free_and_strdup_warn(s, empty_to_null(rvalue));
 }
-
-#if 0 /// UNNEEDED by elogind
-int config_parse_path(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_free_ char *n = NULL;
-        bool fatal = ltype;
-        char **s = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue))
-                goto finalize;
-
-        n = strdup(rvalue);
-        if (!n)
-                return log_oom();
-
-        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE | (fatal ? PATH_CHECK_FATAL : 0), unit, filename, line, lvalue);
-        if (r < 0)
-                return fatal ? -ENOEXEC : 0;
-
-finalize:
-        return free_and_replace(*s, n);
-}
-#endif // 0
 
 int config_parse_strv(
                 const char *unit,
@@ -916,7 +780,7 @@ int config_parse_log_level(
 
         x = log_level_from_string(rvalue);
         if (x < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse log level, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, x, "Failed to parse log level, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -949,7 +813,7 @@ int config_parse_signal(
 
         r = signal_from_string(rvalue);
         if (r <= 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse signal name, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse signal name, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1198,16 +1062,17 @@ int config_parse_rlimit(
         return 0;
 }
 
-int config_parse_permille(const char* unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_permille(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         unsigned *permille = data;
         int r;
@@ -1229,17 +1094,20 @@ int config_parse_permille(const char* unit,
         return 0;
 }
 
-int config_parse_vlanprotocol(const char* unit,
-                              const char *filename,
-                              unsigned line,
-                              const char *section,
-                              unsigned section_line,
-                              const char *lvalue,
-                              int ltype,
-                              const char *rvalue,
-                              void *data,
-                              void *userdata) {
+int config_parse_vlanprotocol(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         int *vlan_protocol = data;
+
         assert(filename);
         assert(lvalue);
 

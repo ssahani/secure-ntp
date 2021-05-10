@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <linux/netlink.h>
@@ -68,7 +68,6 @@ int audit_loginuid_from_pid(pid_t pid, uid_t *uid) {
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 bool use_audit(void) {
         static int cached_use = -1;
 
@@ -88,4 +87,3 @@ bool use_audit(void) {
 
         return cached_use;
 }
-#endif // 0

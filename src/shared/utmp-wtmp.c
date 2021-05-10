@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -23,54 +23,6 @@
 #include "time-util.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
-
-#if 0 /// UNNEEDED by elogind
-int utmp_get_runlevel(int *runlevel, int *previous) {
-        _cleanup_(utxent_cleanup) bool utmpx = false;
-        struct utmpx *found, lookup = { .ut_type = RUN_LVL };
-        const char *e;
-
-        assert(runlevel);
-
-        /* If these values are set in the environment this takes
-         * precedence. Presumably, sysvinit does this to work around a
-         * race condition that would otherwise exist where we'd always
-         * go to disk and hence might read runlevel data that might be
-         * very new and not apply to the current script being executed. */
-
-        e = getenv("RUNLEVEL");
-        if (e && e[0] > 0) {
-                *runlevel = e[0];
-
-                if (previous) {
-                        /* $PREVLEVEL seems to be an Upstart thing */
-
-                        e = getenv("PREVLEVEL");
-                        if (e && e[0] > 0)
-                                *previous = e[0];
-                        else
-                                *previous = 0;
-                }
-
-                return 0;
-        }
-
-        if (utmpxname(_PATH_UTMPX) < 0)
-                return -errno;
-
-        utmpx = utxent_start();
-
-        found = getutxid(&lookup);
-        if (!found)
-                return -errno;
-
-        *runlevel = found->ut_pid & 0xFF;
-        if (previous)
-                *previous = (found->ut_pid >> 8) & 0xFF;
-
-        return 0;
-}
-#endif // 0
 
 static void init_timestamp(struct utmpx *store, usec_t t) {
         assert(store);

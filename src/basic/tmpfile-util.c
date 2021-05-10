@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mman.h>
 
@@ -65,7 +65,7 @@ int fopen_temporary(const char *path, FILE **ret_f, char **ret_temp_path) {
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {
-        int fd = -1; /* avoid false maybe-uninitialized warning */
+        int fd = -1;  /* avoid false maybe-uninitialized warning */
 
         assert(pattern);
 
@@ -94,15 +94,10 @@ int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
 }
 
 int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
-        const char *fn;
-        char *t;
+        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL;
+        int r;
 
         assert(ret);
-
-        if (isempty(p))
-                return -EINVAL;
-        if (path_equal(p, "/"))
-                return -EINVAL;
 
         /*
          * Turns this:
@@ -112,17 +107,117 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
          *         /foo/bar/.#<extra>waldoXXXXXX
          */
 
-        fn = basename(p);
-        if (!filename_is_valid(fn))
+        r = path_extract_directory(p, &d);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
+                return r;
+
+        r = path_extract_filename(p, &fn);
+        if (r < 0)
+                return r;
+
+        nf = strjoin(".#", strempty(extra), fn, "XXXXXX");
+        if (!nf)
+                return -ENOMEM;
+
+        if (!filename_is_valid(nf)) /* New name is not valid? (Maybe because too long?) Refuse. */
                 return -EINVAL;
+
+        if (d)  {
+                char *j;
+
+                j = path_join(d, nf);
+                if (!j)
+                        return -ENOMEM;
+
+                *ret = path_simplify(j, false);
+        } else
+                *ret = TAKE_PTR(nf);
+
+        return 0;
+}
+
+int tempfn_random(const char *p, const char *extra, char **ret) {
+        _cleanup_free_ char *d = NULL, *fn = NULL, *nf = NULL;
+        int r;
+
+        assert(ret);
+
+        /*
+         * Turns this:
+         *         /foo/bar/waldo
+         *
+         * Into this:
+         *         /foo/bar/.#<extra>waldobaa2a261115984a9
+         */
+
+        r = path_extract_directory(p, &d);
+        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
+                return r;
+
+        r = path_extract_filename(p, &fn);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&nf, ".#%s%s%016" PRIx64,
+                     strempty(extra),
+                     fn,
+                     random_u64()) < 0)
+                return -ENOMEM;
+
+        if (!filename_is_valid(nf)) /* Not valid? (maybe because too long now?) — refuse early */
+                return -EINVAL;
+
+        if (d) {
+                char *j;
+
+                j = path_join(d, nf);
+                if (!j)
+                        return -ENOMEM;
+
+                *ret = path_simplify(j, false);
+        } else
+                *ret = TAKE_PTR(nf);
+
+        return 0;
+}
+
+int tempfn_random_child(const char *p, const char *extra, char **ret) {
+        char *t, *x;
+        uint64_t u;
+        int r;
+
+        assert(ret);
+
+        /* Turns this:
+         *         /foo/bar/waldo
+         * Into this:
+         *         /foo/bar/waldo/.#<extra>3c2b6219aa75d7d0
+         */
+
+        if (!p) {
+                r = tmp_dir(&p);
+                if (r < 0)
+                        return r;
+        }
 
         extra = strempty(extra);
 
-        t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
+        t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
         if (!t)
                 return -ENOMEM;
 
-        strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
+        if (isempty(p))
+                x = stpcpy(stpcpy(t, ".#"), extra);
+        else
+                x = stpcpy(stpcpy(stpcpy(t, p), "/.#"), extra);
+
+        u = random_u64();
+        for (unsigned i = 0; i < 16; i++) {
+                *(x++) = hexchar(u & 0xF);
+                u >>= 4;
+        }
+
+        *x = 0;
 
         *ret = path_simplify(t, false);
         return 0;
@@ -147,7 +242,7 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
                 return fd;
 
         /* Fall back to unguessable name + unlinking */
-        p = strjoina(directory, "/elogind-tmp-XXXXXX");
+        p = strjoina(directory, "/systemd-tmp-XXXXXX");
 
         fd = mkostemp_safe(p);
         if (fd < 0)
@@ -158,7 +253,6 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
         return fd;
 }
 
-#if 0 /// UNNEEDED by elogind
 int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         _cleanup_free_ char *tmp = NULL;
         int r, fd;
@@ -222,7 +316,6 @@ int link_tmpfile(int fd, const char *path, const char *target) {
 
         return 0;
 }
-#endif // 0
 
 int mkdtemp_malloc(const char *template, char **ret) {
         _cleanup_free_ char *p = NULL;

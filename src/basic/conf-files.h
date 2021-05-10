@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "macro.h"
@@ -21,5 +21,3 @@ int conf_files_list_with_replacement(
                 const char *replacement,
                 char ***files,
                 char **replace_file);
-#if 0 /// UNNEEDED by elogind
-#endif // 0

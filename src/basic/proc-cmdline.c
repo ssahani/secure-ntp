@@ -118,21 +118,6 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
 
         /* We parse the EFI variable first, because later settings have higher priority. */
 
-#if 0
-        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
-                r = systemd_efi_options_variable(&line);
-                if (r < 0) {
-                        if (r != -ENODATA)
-                                log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
-                } else {
-                        r = proc_cmdline_parse_given(line, parse_item, data, flags);
-                        if (r < 0)
-                                return r;
-
-                        line = mfree(line);
-                }
-        }
-#endif
         r = proc_cmdline(&line);
         if (r < 0)
                 return r;
@@ -264,17 +249,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         }
 
         line = mfree(line);
-#if 0
-        r = systemd_efi_options_variable(&line);
-        if (r == -ENODATA) {
-                if (ret_value)
-                        *ret_value = NULL;
 
-                return false; /* Not found */
-        }
-        if (r < 0)
-                return r;
-#endif
         return cmdline_get_key(line, key, flags, ret_value);
 }
 
@@ -315,13 +290,6 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         assert(!FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL));
 
         /* This call may clobber arguments on failure! */
-#if 0
-        if (!FLAGS_SET(flags, PROC_CMDLINE_IGNORE_EFI_OPTIONS)) {
-                r = systemd_efi_options_variable(&line);
-                if (r < 0 && r != -ENODATA)
-                        log_debug_errno(r, "Failed to get SystemdOptions EFI variable, ignoring: %m");
-        }
-#endif
         p = line;
         for (;;) {
                 _cleanup_free_ char *word = NULL;

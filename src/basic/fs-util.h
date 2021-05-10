@@ -50,6 +50,8 @@ int stat_warn_permissions(const char *path, const struct stat *st);
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
 int touch(const char *path);
 
+int symlink_idempotent(const char *from, const char *to, bool make_relative);
+
 int symlink_atomic(const char *from, const char *to);
 int mknod_atomic(const char *path, mode_t mode, dev_t dev);
 int mkfifo_atomic(const char *path, mode_t mode);

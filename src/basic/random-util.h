@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -19,7 +19,6 @@ void random_bytes(void *p, size_t n);                           /* returns genui
 
 void initialize_srand(void);
 
-#if 0 /// UNNEEDED by elogind
 static inline uint64_t random_u64(void) {
         uint64_t u;
         random_bytes(&u, sizeof(u));
@@ -31,7 +30,6 @@ static inline uint32_t random_u32(void) {
         random_bytes(&u, sizeof(u));
         return u;
 }
-#endif // 0
 
 int rdrand(unsigned long *ret);
 
@@ -42,3 +40,5 @@ int rdrand(unsigned long *ret);
 size_t random_pool_size(void);
 
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit);
+
+uint64_t random_u64_range(uint64_t max);

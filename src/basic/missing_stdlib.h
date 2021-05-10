@@ -1,7 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-//#include <stdlib.h>
+#include <stdlib.h>
 
 /* stdlib.h */
 #if !HAVE_SECURE_GETENV

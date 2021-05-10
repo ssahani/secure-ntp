@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: CC0-1.0 */
+
 /*
    SipHash reference C implementation
 
@@ -10,7 +12,7 @@
    worldwide. This software is distributed without any warranty.
 
    You should have received a copy of the CC0 Public Domain Dedication along with
-   this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
+   this software. If not, see <https://creativecommons.org/publicdomain/zero/1.0/>.
 
    (Minimal changes made by Lennart Poettering, to make clean for inclusion in systemd)
    (Refactored by Tom Gundersen to split up in several functions and follow systemd
@@ -68,12 +70,6 @@ void siphash24_init(struct siphash *state, const uint8_t k[static 16]) {
         };
 }
 
-#if 1 /// let's add a diagnostic push to silence -Wimplicit-fallthrough to elogind
-#  if defined(__GNUC__) && (__GNUC__ > 6)
-#    pragma GCC diagnostic push
-#    pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
-#  endif // __GNUC__
-#endif // 1
 void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
 
         const uint8_t *in = _in;
@@ -156,14 +152,6 @@ void siphash24_compress(const void *_in, size_t inlen, struct siphash *state) {
                         break;
         }
 }
-#if 1 /// end diagnostic push in elogind
-#  ifdef __GNUC__
-#    pragma GCC diagnostic pop
-#  endif // __GNUC__
-#endif // 1
-
-#if 0 /// UNNEEDED by elogind
-#endif // 0
 
 uint64_t siphash24_finalize(struct siphash *state) {
         uint64_t b;

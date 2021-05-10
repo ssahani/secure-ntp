@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdpathhfoo
 #define foosdpathhfoo
 
@@ -82,23 +82,6 @@ enum {
          * replaces "path" by "search"), since this API is about dirs/paths anyway, and contains "path"
          * already in the prefix */
         SD_PATH_SYSTEMD_UTIL,
-#if 0 /** INVALID in elogind */
-        SD_PATH_SYSTEMD_SYSTEM_UNIT,
-        SD_PATH_SYSTEMD_SYSTEM_PRESET,
-        SD_PATH_SYSTEMD_SYSTEM_CONF,
-        SD_PATH_SYSTEMD_USER_UNIT,
-        SD_PATH_SYSTEMD_USER_PRESET,
-        SD_PATH_SYSTEMD_USER_CONF,
-
-        SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT,
-        SD_PATH_SYSTEMD_SEARCH_USER_UNIT,
-
-        SD_PATH_SYSTEMD_SYSTEM_GENERATOR,
-        SD_PATH_SYSTEMD_USER_GENERATOR,
-        SD_PATH_SYSTEMD_SEARCH_SYSTEM_GENERATOR,
-        SD_PATH_SYSTEMD_SEARCH_USER_GENERATOR,
-#endif /* 0 */
-
         SD_PATH_SYSTEMD_SLEEP,
         SD_PATH_SYSTEMD_SHUTDOWN,
 
@@ -108,11 +91,6 @@ enum {
         SD_PATH_BINFMT,
         SD_PATH_MODULES_LOAD,
         SD_PATH_CATALOG,
-
-#if 0 /** INVALID in elogind */
-        /* systemd-networkd search paths */
-        SD_PATH_SYSTEMD_SEARCH_NETWORK,
-#endif /* 0 */
 
         _SD_PATH_MAX,
 };

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "missing_syscall.h"
 #include "sparse-endian.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -102,7 +103,6 @@ int fgetxattr_malloc(
         }
 }
 
-#if 0 /// UNNEEDED by elogind
 int fgetxattrat_fake(
                 int dirfd,
                 const char *filename,
@@ -147,7 +147,7 @@ static int parse_crtime(le64_t le, usec_t *usec) {
         assert(usec);
 
         u = le64toh(le);
-        if (IN_SET(u, 0, (uint64_t) -1))
+        if (IN_SET(u, 0, UINT64_MAX))
                 return -EIO;
 
         *usec = (usec_t) u;
@@ -155,12 +155,7 @@ static int parse_crtime(le64_t le, usec_t *usec) {
 }
 
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
-        struct_statx sx
-#if HAS_FEATURE_MEMORY_SANITIZER
-                = {}
-#  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
-#endif
-                ;
+        STRUCT_STATX_DEFINE(sx);
         usec_t a, b;
         le64_t le;
         size_t n;
@@ -235,7 +230,6 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         return 0;
 }
-#endif // 0
 
 int flistxattr_malloc(int fd, char **ret) {
         size_t l = 100;

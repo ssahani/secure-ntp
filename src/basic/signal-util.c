@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdarg.h>
@@ -15,9 +15,9 @@ int reset_all_signal_handlers(void) {
                 .sa_handler = SIG_DFL,
                 .sa_flags = SA_RESTART,
         };
-        int sig, r = 0;
+        int r = 0;
 
-        for (sig = 1; sig < _NSIG; sig++) {
+        for (int sig = 1; sig < _NSIG; sig++) {
 
                 /* These two cannot be caught... */
                 if (IN_SET(sig, SIGKILL, SIGSTOP))
@@ -45,19 +45,13 @@ int reset_signal_mask(void) {
         return 0;
 }
 
-static int sigaction_many_ap(const struct sigaction *sa, int sig, va_list ap) {
-        int r = 0;
+int sigaction_many_internal(const struct sigaction *sa, ...) {
+        int sig, r = 0;
+        va_list ap;
+
+        va_start(ap, sa);
 
         /* negative signal ends the list. 0 signal is skipped. */
-
-        if (sig < 0)
-                return 0;
-
-        if (sig > 0) {
-                if (sigaction(sig, sa, NULL) < 0)
-                        r = -errno;
-        }
-
         while ((sig = va_arg(ap, int)) >= 0) {
 
                 if (sig == 0)
@@ -69,51 +63,6 @@ static int sigaction_many_ap(const struct sigaction *sa, int sig, va_list ap) {
                 }
         }
 
-        return r;
-}
-
-#if 0 /// UNNEEDED by elogind
-int sigaction_many(const struct sigaction *sa, ...) {
-        va_list ap;
-        int r;
-
-        va_start(ap, sa);
-        r = sigaction_many_ap(sa, 0, ap);
-        va_end(ap);
-
-        return r;
-}
-#endif // 0
-
-int ignore_signals(int sig, ...) {
-
-        static const struct sigaction sa = {
-                .sa_handler = SIG_IGN,
-                .sa_flags = SA_RESTART,
-        };
-
-        va_list ap;
-        int r;
-
-        va_start(ap, sig);
-        r = sigaction_many_ap(&sa, sig, ap);
-        va_end(ap);
-
-        return r;
-}
-
-int default_signals(int sig, ...) {
-
-        static const struct sigaction sa = {
-                .sa_handler = SIG_DFL,
-                .sa_flags = SA_RESTART,
-        };
-
-        va_list ap;
-        int r;
-
-        va_start(ap, sig);
-        r = sigaction_many_ap(&sa, sig, ap);
         va_end(ap);
 
         return r;
@@ -138,7 +87,6 @@ static int sigset_add_many_ap(sigset_t *ss, va_list ap) {
         return r;
 }
 
-#if 0 /// UNNEEDED by elogind
 int sigset_add_many(sigset_t *ss, ...) {
         va_list ap;
         int r;
@@ -149,7 +97,6 @@ int sigset_add_many(sigset_t *ss, ...) {
 
         return r;
 }
-#endif // 0
 
 int sigprocmask_many(int how, sigset_t *old, ...) {
         va_list ap;
@@ -211,7 +158,7 @@ static const char *const __signal_table[] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
 
 const char *signal_to_string(int signo) {
-        static thread_local char buf[STRLEN("RTMIN+") + DECIMAL_STR_MAX(int) + 1];
+        static thread_local char buf[STRLEN("RTMIN+") + DECIMAL_STR_MAX(int)];
         const char *name;
 
         name = __signal_to_string(signo);
@@ -288,12 +235,9 @@ int signal_from_string(const char *s) {
         return -EINVAL;
 }
 
-
-#if 0 /// UNNEEDED by elogind
 void nop_signal_handler(int sig) {
         /* nothing here */
 }
-#endif // 0
 
 int signal_is_blocked(int sig) {
         sigset_t ss;

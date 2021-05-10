@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -73,7 +73,6 @@ int parse_uid(const char *s, uid_t *ret) {
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper) {
         _cleanup_free_ char *word = NULL;
         uid_t l, u;
@@ -113,7 +112,6 @@ int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper) {
         *ret_upper = u;
         return 0;
 }
-#endif // 0
 
 char* getlogname_malloc(void) {
         uid_t uid;
@@ -127,7 +125,6 @@ char* getlogname_malloc(void) {
         return uid_to_name(uid);
 }
 
-#if 0 /// UNNEEDED by elogind
 char *getusername_malloc(void) {
         const char *e;
 
@@ -137,7 +134,6 @@ char *getusername_malloc(void) {
 
         return uid_to_name(getuid());
 }
-#endif // 0
 
 bool is_nologin_shell(const char *shell) {
 
@@ -313,7 +309,6 @@ int get_user_creds(
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
         struct group *g;
         gid_t id;
@@ -370,7 +365,6 @@ int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags) {
 
         return 0;
 }
-#endif // 0
 
 char* uid_to_name(uid_t uid) {
         char *ret;
@@ -461,7 +455,6 @@ char* gid_to_name(gid_t gid) {
         return ret;
 }
 
-#if 0 /// UNNEEDED by elogind
 static bool gid_list_has(const gid_t *list, size_t size, gid_t val) {
         for (size_t i = 0; i < size; i++)
                 if (list[i] == val)
@@ -562,7 +555,6 @@ int getgroups_alloc(gid_t** gids) {
         *gids = TAKE_PTR(p);
         return ngroups;
 }
-#endif // 0
 
 int get_home_dir(char **_h) {
         struct passwd *p;
@@ -621,7 +613,6 @@ int get_home_dir(char **_h) {
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 int get_shell(char **_s) {
         struct passwd *p;
         const char *e;
@@ -678,7 +669,6 @@ int get_shell(char **_s) {
         *_s = path_simplify(s, true);
         return 0;
 }
-#endif // 0
 
 int reset_uid_gid(void) {
         int r;
@@ -696,7 +686,6 @@ int reset_uid_gid(void) {
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 int take_etc_passwd_lock(const char *root) {
 
         struct flock flock = {
@@ -736,7 +725,6 @@ int take_etc_passwd_lock(const char *root) {
 
         return fd;
 }
-#endif // 0
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags) {
         const char *i;
@@ -848,7 +836,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
 
                 if (l > (size_t) sz)
                         return false;
-                if (l > FILENAME_MAX)
+                if (l > NAME_MAX) /* must fit in a filename */
                         return false;
                 if (l > UT_NAMESIZE - 1)
                         return false;
@@ -873,6 +861,37 @@ bool valid_gecos(const char *d) {
                 return false;
 
         return true;
+}
+
+char *mangle_gecos(const char *d) {
+        char *mangled;
+
+        /* Makes sure the provided string becomes valid as a GEGOS field, by dropping bad chars. glibc's
+         * putwent() only changes \n and : to spaces. We do more: replace all CC too, and remove invalid
+         * UTF-8 */
+
+        mangled = strdup(d);
+        if (!mangled)
+                return NULL;
+
+        for (char *i = mangled; *i; i++) {
+                int len;
+
+                if ((uint8_t) *i < (uint8_t) ' ' || *i == ':') {
+                        *i = ' ';
+                        continue;
+                }
+
+                len = utf8_encoded_valid_unichar(i, SIZE_MAX);
+                if (len < 0) {
+                        *i = ' ';
+                        continue;
+                }
+
+                i += len - 1;
+        }
+
+        return mangled;
 }
 
 bool valid_home(const char *p) {
@@ -941,117 +960,21 @@ bool synthesize_nobody(void) {
         static int cache = -1;
 
         if (cache < 0)
-                cache = access("/etc/elogind/dont-synthesize-nobody", F_OK) < 0;
+                cache = access("/etc/systemd/dont-synthesize-nobody", F_OK) < 0;
 
         return cache;
 }
 
-#if 0 /// UNNEEDED by elogind
-int putpwent_sane(const struct passwd *pw, FILE *stream) {
-        assert(pw);
-        assert(stream);
+int is_this_me(const char *username) {
+        uid_t uid;
+        int r;
 
-        errno = 0;
-        if (putpwent(pw, stream) != 0)
-                return errno_or_else(EIO);
+        /* Checks if the specified username is our current one. Passed string might be a UID or a user name. */
 
-        return 0;
+        r = get_user_creds(&username, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
+        if (r < 0)
+                return r;
+
+        return uid == getuid();
 }
 
-int putspent_sane(const struct spwd *sp, FILE *stream) {
-        assert(sp);
-        assert(stream);
-
-        errno = 0;
-        if (putspent(sp, stream) != 0)
-                return errno_or_else(EIO);
-
-        return 0;
-}
-
-int putgrent_sane(const struct group *gr, FILE *stream) {
-        assert(gr);
-        assert(stream);
-
-        errno = 0;
-        if (putgrent(gr, stream) != 0)
-                return errno_or_else(EIO);
-
-        return 0;
-}
-
-#if ENABLE_GSHADOW
-int putsgent_sane(const struct sgrp *sg, FILE *stream) {
-        assert(sg);
-        assert(stream);
-
-        errno = 0;
-        if (putsgent(sg, stream) != 0)
-                return errno_or_else(EIO);
-
-        return 0;
-}
-#endif
-
-int fgetpwent_sane(FILE *stream, struct passwd **pw) {
-        struct passwd *p;
-
-        assert(pw);
-        assert(stream);
-
-        errno = 0;
-        p = fgetpwent(stream);
-        if (!p && errno != ENOENT)
-                return errno_or_else(EIO);
-
-        *pw = p;
-        return !!p;
-}
-
-int fgetspent_sane(FILE *stream, struct spwd **sp) {
-        struct spwd *s;
-
-        assert(sp);
-        assert(stream);
-
-        errno = 0;
-        s = fgetspent(stream);
-        if (!s && errno != ENOENT)
-                return errno_or_else(EIO);
-
-        *sp = s;
-        return !!s;
-}
-
-int fgetgrent_sane(FILE *stream, struct group **gr) {
-        struct group *g;
-
-        assert(gr);
-        assert(stream);
-
-        errno = 0;
-        g = fgetgrent(stream);
-        if (!g && errno != ENOENT)
-                return errno_or_else(EIO);
-
-        *gr = g;
-        return !!g;
-}
-
-#if ENABLE_GSHADOW
-int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
-        struct sgrp *s;
-
-        assert(sg);
-        assert(stream);
-
-        errno = 0;
-        s = fgetsgent(stream);
-        if (!s && errno != ENOENT)
-                return errno_or_else(EIO);
-
-        *sg = s;
-        return !!s;
-}
-#endif
-#endif // 0

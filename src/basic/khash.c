@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/if_alg.h>
 #include <stdbool.h>
@@ -32,11 +32,7 @@ int khash_supported(void) {
         } sa = {
                 .alg.salg_family = AF_ALG,
                 .alg.salg_type = "hash",
-#if 0 /// Needed for cross-compiling elogind for arm* on amd64 and i386 hosts under qemu
                 .alg.salg_name = "sha256", /* a very common algorithm */
-#else // 0
-                .alg.salg_name = "hmac(sha256)", /* a very common algorithm */
-#endif // 0
         };
 
         static int cached = -1;
@@ -66,18 +62,6 @@ int khash_supported(void) {
                         return -errno;
                 }
 
-#if 1 /// Needed for cross-compiling elogind for arm* on amd64 and i386 hosts
-                if (setsockopt(fd1, SOL_ALG, ALG_SET_KEY, "quux", 4) < 0) {
-                        /* When cross-building under qemu SOL_ALG is not supported. Test that here and avoid test
-                           failures. */
-
-                        if (IN_SET(errno, EOPNOTSUPP, ENOPROTOOPT, EPROTONOSUPPORT))
-                                return (cached = false);
-
-                        return -errno;
-                }
-#endif // 1
-
                 fd2 = accept4(fd1, NULL, 0, SOCK_CLOEXEC);
                 if (fd2 < 0) {
                         if (errno == EOPNOTSUPP)
@@ -93,10 +77,6 @@ int khash_supported(void) {
 
                         if (IN_SET(errno, ENOKEY, EOPNOTSUPP))
                                 return (cached = false);
-
-#if 1 /// Do not make other errors look like successes in elogind
-                        return -errno;
-#endif // 1
                 }
 
                 cached = true;
@@ -180,8 +160,7 @@ int khash_new_with_key(khash **ret, const char *algorithm, const void *key, size
         /* Temporary fix for rc kernel bug: https://bugzilla.redhat.com/show_bug.cgi?id=1395896 */
         (void) send(h->fd, NULL, 0, 0);
 
-        *ret = h;
-        h = NULL;
+        *ret = TAKE_PTR(h);
 
         return 0;
 }
@@ -269,8 +248,8 @@ int khash_put(khash *h, const void *buffer, size_t size) {
 
 int khash_put_iovec(khash *h, const struct iovec *iovec, size_t n) {
         struct msghdr mh = {
-                mh.msg_iov = (struct iovec*) iovec,
-                mh.msg_iovlen = n,
+                .msg_iov = (struct iovec*) iovec,
+                .msg_iovlen = n,
         };
         ssize_t k;
 

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <ctype.h>
 #include <errno.h>
@@ -119,7 +119,7 @@ int unhexmem_full(const char *p, size_t l, bool secure, void **ret, size_t *ret_
         assert(ret_len);
         assert(p || l == 0);
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* Note that the calculation of memory size is an upper boundary, as we ignore whitespace while decoding */
@@ -309,7 +309,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
         assert(mem);
         assert(_len);
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* padding ensures any base32hex input has input divisible by 8 */
@@ -597,7 +597,6 @@ ssize_t base64mem(const void *p, size_t l, char **out) {
         return z - r;
 }
 
-#if 0 /// UNNEEDED by elogind
 static int base64_append_width(
                 char **prefix, int plen,
                 char sep, int indent,
@@ -655,7 +654,6 @@ int base64_append(
                 /* leave plen on the left, keep last column free */
                 return base64_append_width(prefix, plen, ' ', plen + 1, p, l, width - plen - 1);
 }
-#endif // 0
 
 static int unbase64_next(const char **p, size_t *l) {
         int ret;
@@ -710,7 +708,7 @@ int unbase64mem_full(const char *p, size_t l, bool secure, void **ret, size_t *r
         assert(ret);
         assert(ret_size);
 
-        if (l == (size_t) -1)
+        if (l == SIZE_MAX)
                 l = strlen(p);
 
         /* A group of four input bytes needs three output bytes, in case of padding we need to add two or three extra

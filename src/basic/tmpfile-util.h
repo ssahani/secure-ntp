@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdio.h>
@@ -12,10 +12,8 @@ int tempfn_random(const char *p, const char *extra, char **ret);
 int tempfn_random_child(const char *p, const char *extra, char **ret);
 
 int open_tmpfile_unlinkable(const char *directory, int flags);
-#if 0 /// UNNEEDED by elogind
 int open_tmpfile_linkable(const char *target, int flags, char **ret_path);
 
 int link_tmpfile(int fd, const char *path, const char *target);
-#endif // 0
 
 int mkdtemp_malloc(const char *template, char **ret);

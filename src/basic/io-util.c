@@ -1,8 +1,7 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <limits.h>
-#include <poll.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -153,32 +152,48 @@ int pipe_eof(int fd) {
         int r;
 
         r = fd_wait_for_event(fd, POLLIN, 0);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         return !!(r & POLLHUP);
 }
 
-int fd_wait_for_event(int fd, int event, usec_t t) {
-
-        struct pollfd pollfd = {
-                .fd = fd,
-                .events = event,
-        };
-
+int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
         struct timespec ts;
         int r;
 
-        r = ppoll(&pollfd, 1, t == USEC_INFINITY ? NULL : timespec_store(&ts, t), NULL);
+        assert(fds || nfds == 0);
+
+        if (nfds == 0)
+                return 0;
+
+        r = ppoll(fds, nfds, timeout == USEC_INFINITY ? NULL : timespec_store(&ts, timeout), NULL);
         if (r < 0)
                 return -errno;
         if (r == 0)
                 return 0;
 
-        if (pollfd.revents & POLLNVAL)
-                return -EBADF;
+        for (size_t i = 0, n = r; i < nfds && n > 0; i++) {
+                if (fds[i].revents == 0)
+                        continue;
+                if (fds[i].revents & POLLNVAL)
+                        return -EBADF;
+                n--;
+        }
+
+        return r;
+}
+
+int fd_wait_for_event(int fd, int event, usec_t timeout) {
+        struct pollfd pollfd = {
+                .fd = fd,
+                .events = event,
+        };
+        int r;
+
+        r = ppoll_usec(&pollfd, 1, timeout);
+        if (r <= 0)
+                return r;
 
         return pollfd.revents;
 }
@@ -245,7 +260,6 @@ ssize_t sparse_write(int fd, const void *p, size_t sz, size_t run_length) {
         return q - (const uint8_t*) p;
 }
 
-#if 0 /// UNNEEDED by elogind
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value) {
         char *x;
 
@@ -294,7 +308,7 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
                 return -E2BIG;
 
         if (!GREEDY_REALLOC(iovw->iovec, iovw->size_bytes, iovw->count + 1))
-                return log_oom();
+                return -ENOMEM;
 
         iovw->iovec[iovw->count++] = IOVEC_MAKE(data, len);
         return 0;
@@ -306,7 +320,7 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
 
         x = strjoin(field, value);
         if (!x)
-                return log_oom();
+                return -ENOMEM;
 
         r = iovw_put(iovw, x, strlen(x));
         if (r >= 0)
@@ -322,18 +336,16 @@ int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, ch
 }
 
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new) {
-        size_t i;
-
-        for (i = 0; i < iovw->count; i++)
+        for (size_t i = 0; i < iovw->count; i++)
                 iovw->iovec[i].iov_base = (char *)iovw->iovec[i].iov_base - old + new;
 }
 
 size_t iovw_size(struct iovec_wrapper *iovw) {
-        size_t n = 0, i;
+        size_t n = 0;
 
-        for (i = 0; i < iovw->count; i++)
+        for (size_t i = 0; i < iovw->count; i++)
                 n += iovw->iovec[i].iov_len;
 
         return n;
 }
-#endif // 0
+

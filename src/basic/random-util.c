@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #if defined(__i386__) || defined(__x86_64__)
 #include <cpuid.h>
@@ -21,6 +21,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -62,7 +63,7 @@ int rdrand(unsigned long *ret) {
          *         • UUID generation: UUIDs are supposed to be universally unique but are not cryptographic
          *           key material. The quality and trust level of RDRAND should hence be OK: UUIDs should be
          *           generated in a way that is reliably unique, but they do not require ultimate trust into
-         *           the entropy generator. elogind generates a number of UUIDs during early boot, including
+         *           the entropy generator. systemd generates a number of UUIDs during early boot, including
          *           'invocation IDs' for every unit spawned that identify the specific invocation of the
          *           service globally, and a number of others. Other alternatives for generating these UUIDs
          *           have been considered, but don't really work: for example, hashing uuids from a local
@@ -70,12 +71,12 @@ int rdrand(unsigned long *ret) {
          *           storage is not yet available (think: initrd) and thus a system-specific ID cannot be
          *           stored or retrieved yet.
          *
-         *         • Hash table seed generation: elogind uses many hash tables internally. Hash tables are
+         *         • Hash table seed generation: systemd uses many hash tables internally. Hash tables are
          *           generally assumed to have O(1) access complexity, but can deteriorate to prohibitive
          *           O(n) access complexity if an attacker manages to trigger a large number of hash
-         *           collisions. Thus, elogind (as any software employing hash tables should) uses seeded
+         *           collisions. Thus, systemd (as any software employing hash tables should) uses seeded
          *           hash functions for its hash tables, with a seed generated randomly. The hash tables
-         *           elogind employs watch the fill level closely and reseed if necessary. This allows use of
+         *           systemd employs watch the fill level closely and reseed if necessary. This allows use of
          *           a low quality RNG initially, as long as it improves should a hash table be under attack:
          *           the attacker after all needs to trigger many collisions to exploit it for the purpose
          *           of DoS, but if doing so improves the seed the attack surface is reduced as the attack
@@ -116,6 +117,15 @@ int rdrand(unsigned long *ret) {
 #endif
 
                 have_rdrand = !!(ecx & bit_RDRND);
+
+                if (have_rdrand > 0) {
+                        /* Allow disabling use of RDRAND with SYSTEMD_RDRAND=0
+                           If it is unset getenv_bool_secure will return a negative value. */
+                        if (getenv_bool_secure("SYSTEMD_RDRAND") == 0) {
+                                have_rdrand = false;
+                                return -EOPNOTSUPP;
+                        }
+                }
         }
 
         if (have_rdrand == 0)
@@ -442,10 +452,21 @@ size_t random_pool_size(void) {
 }
 
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
+        _cleanup_close_ int opened_fd = -1;
         int r;
 
-        assert(fd >= 0);
-        assert(seed && size > 0);
+        assert(seed || size == 0);
+
+        if (size == 0)
+                return 0;
+
+        if (fd < 0) {
+                opened_fd = open("/dev/urandom", O_WRONLY|O_CLOEXEC|O_NOCTTY);
+                if (opened_fd < 0)
+                        return -errno;
+
+                fd = opened_fd;
+        }
 
         if (credit) {
                 _cleanup_free_ struct rand_pool_info *info = NULL;
@@ -471,5 +492,24 @@ int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
                         return r;
         }
 
-        return 0;
+        return 1;
+}
+
+uint64_t random_u64_range(uint64_t m) {
+        uint64_t x, remainder;
+
+        /* Generates a random number in the range 0…m-1, unbiased. (Java's algorithm) */
+
+        if (m == 0) /* Let's take m == 0 as special case to return an integer from the full range */
+                return random_u64();
+        if (m == 1)
+                return 0;
+
+        remainder = UINT64_MAX % m;
+
+        do {
+                x = random_u64();
+        } while (x >= UINT64_MAX - remainder);
+
+        return x % m;
 }

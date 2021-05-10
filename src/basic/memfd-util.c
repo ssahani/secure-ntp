@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <sys/stat.h>
@@ -56,7 +56,6 @@ int memfd_new(const char *name) {
         return fd;
 }
 
-#if 0 /// UNNEEDED by elogind
 int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
         void *q;
         int sealed;
@@ -80,7 +79,6 @@ int memfd_map(int fd, uint64_t offset, size_t size, void **p) {
         *p = q;
         return 0;
 }
-#endif // 0
 
 int memfd_set_sealed(int fd) {
         int r;
@@ -94,7 +92,6 @@ int memfd_set_sealed(int fd) {
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 int memfd_get_sealed(int fd) {
         int r;
 
@@ -106,7 +103,6 @@ int memfd_get_sealed(int fd) {
 
         return r == (F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL);
 }
-#endif // 0
 
 int memfd_get_size(int fd, uint64_t *sz) {
         struct stat stat;
@@ -135,7 +131,6 @@ int memfd_set_size(int fd, uint64_t sz) {
         return 0;
 }
 
-#if 0 /// UNNEEDED by elogind
 int memfd_new_and_map(const char *name, size_t sz, void **p) {
         _cleanup_close_ int fd = -1;
         int r;
@@ -157,4 +152,4 @@ int memfd_new_and_map(const char *name, size_t sz, void **p) {
 
         return TAKE_FD(fd);
 }
-#endif // 0
+

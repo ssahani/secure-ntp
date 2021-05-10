@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 /*
  * Concatenates/copies strings. In any case, terminates in all cases
@@ -65,7 +65,6 @@ size_t strpcpyf(char **dest, size_t size, const char *src, ...) {
         return size;
 }
 
-#if 0 /// UNNEEDED by elogind
 size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
         va_list va;
 
@@ -80,7 +79,6 @@ size_t strpcpyl(char **dest, size_t size, const char *src, ...) {
         va_end(va);
         return size;
 }
-#endif // 0
 
 size_t strnscpy(char *dest, size_t size, const char *src, size_t len) {
         char *s;

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -33,11 +33,9 @@ char *base32hexmem(const void *p, size_t l, bool padding);
 int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *len);
 
 ssize_t base64mem(const void *p, size_t l, char **out);
-#if 0 /// UNNEEDED by elogind
 int base64_append(char **prefix, int plen,
                   const void *p, size_t l,
                   int margin, int width);
-#endif // 0
 int unbase64mem_full(const char *p, size_t l, bool secure, void **mem, size_t *len);
 static inline int unbase64mem(const char *p, size_t l, void **mem, size_t *len) {
         return unbase64mem_full(p, l, false, mem, len);

@@ -285,3 +285,30 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+
+static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
+        [NOTIFY_NONE] = "none",
+        [NOTIFY_MAIN] = "main",
+        [NOTIFY_EXEC] = "exec",
+        [NOTIFY_ALL] = "all"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+
+SpecialGlyph unit_active_state_to_glyph(UnitActiveState state) {
+        static const SpecialGlyph map[_UNIT_ACTIVE_STATE_MAX] = {
+                [UNIT_ACTIVE]       = SPECIAL_GLYPH_BLACK_CIRCLE,
+                [UNIT_RELOADING]    = SPECIAL_GLYPH_CIRCLE_ARROW,
+                [UNIT_INACTIVE]     = SPECIAL_GLYPH_WHITE_CIRCLE,
+                [UNIT_FAILED]       = SPECIAL_GLYPH_MULTIPLICATION_SIGN,
+                [UNIT_ACTIVATING]   = SPECIAL_GLYPH_BLACK_CIRCLE,
+                [UNIT_DEACTIVATING] = SPECIAL_GLYPH_BLACK_CIRCLE,
+                [UNIT_MAINTENANCE]  = SPECIAL_GLYPH_WHITE_CIRCLE,
+        };
+
+        if (state < 0)
+                return _SPECIAL_GLYPH_INVALID;
+
+        assert(state < _UNIT_ACTIVE_STATE_MAX);
+        return map[state];
+}

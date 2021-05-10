@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include <security/pam_ext.h>
 #include <syslog.h>
 #include <stdlib.h>
@@ -37,7 +39,7 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
         assert(ret);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = pam_get_data(handle, "elogind-system-bus", (const void**) &bus);
+        r = pam_get_data(handle, "systemd-system-bus", (const void**) &bus);
         if (r == PAM_SUCCESS && bus) {
                 *ret = sd_bus_ref(TAKE_PTR(bus)); /* Increase the reference counter, so that the PAM data stays valid */
                 return PAM_SUCCESS;
@@ -53,7 +55,7 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
                 return PAM_SERVICE_ERR;
         }
 
-        r = pam_set_data(handle, "elogind-system-bus", bus, cleanup_system_bus);
+        r = pam_set_data(handle, "systemd-system-bus", bus, cleanup_system_bus);
         if (r != PAM_SUCCESS) {
                 pam_syslog(handle, LOG_ERR, "Failed to set PAM bus data: %s", pam_strerror(handle, r));
                 return r;
@@ -68,7 +70,7 @@ int pam_acquire_bus_connection(pam_handle_t *handle, sd_bus **ret) {
 int pam_release_bus_connection(pam_handle_t *handle) {
         int r;
 
-        r = pam_set_data(handle, "elogind-system-bus", NULL, NULL);
+        r = pam_set_data(handle, "systemd-system-bus", NULL, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog(handle, LOG_ERR, "Failed to release PAM user record data: %s", pam_strerror(handle, r));
 

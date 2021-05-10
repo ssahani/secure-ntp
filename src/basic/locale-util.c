@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <fcntl.h>
@@ -24,7 +24,6 @@
 #include "strv.h"
 #include "utf8.h"
 
-#if 0 /// UNNEEDED by elogind
 static char *normalize_locale(const char *name) {
         const char *e;
 
@@ -99,7 +98,6 @@ static int add_locales_from_archive(Set *locales) {
         _cleanup_close_ int fd = -1;
         size_t sz = 0;
         struct stat st;
-        size_t i;
         int r;
 
         fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
@@ -130,7 +128,7 @@ static int add_locales_from_archive(Set *locales) {
         }
 
         e = (const struct namehashent*) ((const uint8_t*) p + h->namehash_offset);
-        for (i = 0; i < h->namehash_size; i++) {
+        for (size_t i = 0; i < h->namehash_size; i++) {
                 char *z;
 
                 if (e[i].locrec_offset == 0)
@@ -234,7 +232,6 @@ int get_locales(char ***ret) {
 
         return 0;
 }
-#endif // 0
 
 bool locale_is_valid(const char *name) {
 
@@ -271,12 +268,10 @@ int locale_is_installed(const char *name) {
         return true;
 }
 
-#if 0 /// UNNEEDED by elogind
 void init_gettext(void) {
         setlocale(LC_ALL, "");
         textdomain(GETTEXT_PACKAGE);
 }
-#endif // 0
 
 bool is_locale_utf8(void) {
         const char *set;
@@ -360,6 +355,9 @@ const char *special_glyph(SpecialGlyph code) {
                         [SPECIAL_GLYPH_TREE_SPACE]              = "  ",
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = ">",
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "*",
+                        [SPECIAL_GLYPH_WHITE_CIRCLE]            = "*",
+                        [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = "x",
+                        [SPECIAL_GLYPH_CIRCLE_ARROW]            = "*",
                         [SPECIAL_GLYPH_BULLET]                  = "*",
                         [SPECIAL_GLYPH_MU]                      = "u",
                         [SPECIAL_GLYPH_CHECK_MARK]              = "+",
@@ -392,6 +390,9 @@ const char *special_glyph(SpecialGlyph code) {
                         /* Single glyphs in both cases */
                         [SPECIAL_GLYPH_TRIANGULAR_BULLET]       = "\342\200\243",             /* ‣ */
                         [SPECIAL_GLYPH_BLACK_CIRCLE]            = "\342\227\217",             /* ● */
+                        [SPECIAL_GLYPH_WHITE_CIRCLE]            = "\u25CB",                   /* ○ */
+                        [SPECIAL_GLYPH_MULTIPLICATION_SIGN]     = "\u00D7",                   /* × */
+                        [SPECIAL_GLYPH_CIRCLE_ARROW]            = "\u21BB",                   /* ↻ */
                         [SPECIAL_GLYPH_BULLET]                  = "\342\200\242",             /* • */
                         [SPECIAL_GLYPH_MU]                      = "\316\274",                 /* μ (actually called: GREEK SMALL LETTER MU) */
                         [SPECIAL_GLYPH_CHECK_MARK]              = "\342\234\223",             /* ✓ */
@@ -426,22 +427,20 @@ const char *special_glyph(SpecialGlyph code) {
                 },
         };
 
-        assert(code < _SPECIAL_GLYPH_MAX);
+        if (code < 0)
+                return NULL;
 
+        assert(code < _SPECIAL_GLYPH_MAX);
         return draw_table[code >= _SPECIAL_GLYPH_FIRST_EMOJI ? emoji_enabled() : is_locale_utf8()][code];
 }
 
-#if 0 /// UNNEEDED by elogind
 void locale_variables_free(char *l[_VARIABLE_LC_MAX]) {
-        LocaleVariable i;
-
         if (!l)
                 return;
 
-        for (i = 0; i < _VARIABLE_LC_MAX; i++)
+        for (LocaleVariable i = 0; i < _VARIABLE_LC_MAX; i++)
                 l[i] = mfree(l[i]);
 }
-#endif // 0
 
 static const char * const locale_variable_table[_VARIABLE_LC_MAX] = {
         [VARIABLE_LANG] = "LANG",

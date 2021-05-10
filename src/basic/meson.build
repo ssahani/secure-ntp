@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 basic_sources = files('''
-        MurmurHash2.c
-        MurmurHash2.h
         alloc-util.c
         alloc-util.h
         architecture.c
@@ -351,7 +349,6 @@ libbasic = static_library(
         dependencies : [versiondep,
                         threads,
                         libcap,
-                        libseccomp,
                         libselinux,
                         libm,
                         libdl],

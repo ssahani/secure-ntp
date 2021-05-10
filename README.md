@@ -42,10 +42,6 @@ If you do not have a github account, the nts-timesyncd wiki page at
   https://github.com/nts-timesyncd/nts-timesyncd/wiki
 lists further possibilities to contact the maintainers.
 
-A forum subsection has been set up for nts-timesyncd at
-  https://forums.prydeworx.com
-where you can register/login with your GitLab/GitHub account.
-
 Finally, bug reports:
   https://github.com/nts-timesyncd/nts-timesyncd/issues
 
@@ -53,33 +49,26 @@ License
 =======
 
 LGPLv2.1+ for all code
-  - except `src/basic/MurmurHash2.c` which is Public Domain
   - except `src/basic/siphash24.c` which is CC0 Public Domain
 
 Dependencies
 ============
 
-  * glibc >= 2.16 (*or* musl-libc >= 1.1.20)
+  * glibc
   * libcap
-  * libacl (optional)
+  * libacl
   * libselinux (optional)
   * libaudit (optional)
   * GnuTLS
   * pkg-config
-  * gperf >= 3.1
+  * gperf
   * python, meson, ninja
   * gcc, awk, sed, grep, m4, and similar tools
 
-During runtime, you need the following additional dependencies:
----------------------------------------------------------------
-  * util-linux >= v2.27.1 required
-  * dbus >= 1.9.14 (strictly speaking optional, but recommended)
-    NOTE: If using dbus < 1.9.18, you should override the default
-          policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
-  * PolicyKit (optional)
-
 To build in directory build/:
-    `meson build/ && ninja -C build`
+    - `make`
+    or
+    - `meson build/ && ninja -C build`
 
 Useful commands:
 ----------------
@@ -88,9 +77,20 @@ Useful commands:
   * `sudo ninja install`
   * `DESTDIR=... ninja install`
   * `make DEBUG=YES`
-    The Makefile is a full convenience wrapper, that allows to use meson/ninja in
-    Makefile compatible IDEs like CLion.
-    Note: For maximum control you should use meson/ninja directly instead.
 
-A tarball can be created with:
-  `git archive --format=tar --prefix=nts-timesyncd-241/ v241 | xz > nts-timesyncd-241.tar.xz`
+Example configration
+------------
+
+```
+❯ sudo cat /etc/nts-timesync/nts-timesyncd.conf
+
+[Time]
+NetworkTimeSecurityServer=time.cloudflare.com nts.sth1.ntp.se nts.netnod.se
+#NTP=
+#FallbackNTP=time1.google.com time2.google.com time3.google.com time4.google.com
+#RootDistanceMaxSec=5
+#PollIntervalMinSec=32
+#PollIntervalMaxSec=2048
+ConnectionRetrySec=5
+
+```

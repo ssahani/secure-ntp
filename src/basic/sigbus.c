@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <signal.h>
@@ -23,12 +23,10 @@ static void* volatile sigbus_queue[SIGBUS_QUEUE_MAX];
 static volatile sig_atomic_t n_sigbus_queue = 0;
 
 static void sigbus_push(void *addr) {
-        unsigned u;
-
         assert(addr);
 
         /* Find a free place, increase the number of entries and leave, if we can */
-        for (u = 0; u < SIGBUS_QUEUE_MAX; u++)
+        for (size_t u = 0; u < SIGBUS_QUEUE_MAX; u++)
                 if (__sync_bool_compare_and_swap(&sigbus_queue[u], NULL, addr)) {
                         __sync_fetch_and_add(&n_sigbus_queue, 1);
                         return;
@@ -50,7 +48,6 @@ static void sigbus_push(void *addr) {
         }
 }
 
-#if 0 /// UNNEEDED by elogind
 int sigbus_pop(void **ret) {
         assert(ret);
 
@@ -81,7 +78,6 @@ int sigbus_pop(void **ret) {
                 }
         }
 }
-#endif // 0
 
 static void sigbus_handler(int sn, siginfo_t *si, void *data) {
         unsigned long ul;
@@ -127,7 +123,6 @@ void sigbus_install(void) {
         return;
 }
 
-#if 0 /// UNNEEDED by elogind
 void sigbus_reset(void) {
 
         if (n_installed <= 0)
@@ -140,4 +135,4 @@ void sigbus_reset(void) {
 
         return;
 }
-#endif // 0
+

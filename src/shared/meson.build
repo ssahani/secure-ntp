@@ -57,8 +57,6 @@ shared_sources = files('''
         log-link.h
         main-func.h
         module-util.h
-        netif-naming-scheme.c
-        netif-naming-scheme.h
         nscd-flush.h
         nsflags.c
         nsflags.h
@@ -94,11 +92,8 @@ libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
 
 libshared_deps = [threads,
                   libcap,
-                  liblz4,
                   librt,
-                  libselinux,
-                  libzstd,
-                  libxz]
+                  libselinux]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())
 

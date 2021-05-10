@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <inttypes.h>
@@ -31,7 +31,7 @@ assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 #  define PRI_TIMEX "li"
 #endif
 
-#ifdef __GLIBC__ /// Go directly for %ju in elogind if not. Enhances musl-libc compatibility.
+#ifdef __GLIBC__
 #if SIZEOF_RLIM_T == 8
 #  define RLIM_FMT "%" PRIu64
 #elif SIZEOF_RLIM_T == 4
@@ -75,8 +75,10 @@ typedef enum {
         FORMAT_BYTES_TRAILING_B  = 1 << 2,
 } FormatBytesFlag;
 
-#define FORMAT_BYTES_MAX 16
+#define FORMAT_BYTES_MAX 16U
+
 char *format_bytes_full(char *buf, size_t l, uint64_t t, FormatBytesFlag flag);
+
 static inline char *format_bytes(char *buf, size_t l, uint64_t t) {
         return format_bytes_full(buf, l, t, FORMAT_BYTES_USE_IEC | FORMAT_BYTES_BELOW_POINT | FORMAT_BYTES_TRAILING_B);
 }

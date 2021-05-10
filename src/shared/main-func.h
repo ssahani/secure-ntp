@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdlib.h>
@@ -6,14 +6,11 @@
 #include "sd-daemon.h"
 
 #include "pager.h"
-//#include "spawn-ask-password-agent.h"
+#include "selinux-util.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
 #include "util.h"
 
-#if 1 /// elogind has no onw password agent, so do nothing.
-#define ask_password_agent_close() while(0){}
-#endif // 1
 #define _DEFINE_MAIN_FUNCTION(intro, impl, ret)                         \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
@@ -22,7 +19,6 @@
                 r = impl;                                               \
                 if (r < 0)                                              \
                         (void) sd_notifyf(0, "ERRNO=%i", -r);           \
-                ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
                 pager_close();                                          \
                 static_destruct();                                      \

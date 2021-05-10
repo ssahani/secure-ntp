@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
 #include <stdarg.h>
@@ -318,6 +318,3 @@ int conf_files_list_with_replacement(
                 *replace_file = TAKE_PTR(p);
         return 0;
 }
-
-#if 0 /// UNNEEDED by elogind
-#endif // 0

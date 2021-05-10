@@ -1,11 +1,4 @@
-#if 0 /// The original Makefile follows, which isn't enough for elogind.
-# all:
-# 	ninja -C build
-#
-# install:
-# 	DESTDIR=$(DESTDIR) ninja -C build install
-#else // 0
-.PHONY: all build clean install justprint loginctl test test-login
+.PHONY: all build clean install justprint
 export
 
 # Set this to YES on the command line for a debug build
@@ -22,9 +15,9 @@ CGCONTROL  ?= $(shell $(HERE)/tools/meson-get-cg-controller.sh)
 CGDEFAULT  ?= $(shell grep "^rc_cgroup_mode" /etc/rc.conf | cut -d '"' -f 2)
 DESTDIR    ?=
 MESON_LST  := $(shell find $(HERE)/ -type f -name 'meson.build') $(HERE)/meson_options.txt
-PREFIX     ?= /tmp/elogind_test
+PREFIX     ?= /usr
 ROOTPREFIX ?= $(PREFIX)
-SYSCONFDIR ?= $(PREFIX)/etc
+SYSCONFDIR ?= /etc
 VERSION    ?= 9999
 
 CC    ?= $(shell which cc)
@@ -59,7 +52,7 @@ endif
 
 # Combine with "sane defaults"
 ifeq (YES,$(DEBUG))
-    BASIC_OPT := --werror -Dlog-trace=true -Dslow-tests=true -Ddebug-extra=elogind --buildtype debug
+    BASIC_OPT := --werror -Dlog-trace=true -Dslow-tests=true -Ddebug-extra=nts-timesyncd --buildtype debug
     BUILDDIR  := ${BUILDDIR}_debug
     CFLAGS    := -O0 -g3 -ggdb -ftrapv ${envCFLAGS} -fPIE
     LDFLAGS   := -fPIE

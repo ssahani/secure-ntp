@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #ifndef foosdid128hfoo
 #define foosdid128hfoo
 
@@ -18,6 +18,7 @@
 ***/
 
 #include <inttypes.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "_sd-common.h"

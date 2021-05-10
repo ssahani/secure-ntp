@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)
@@ -16,17 +16,6 @@
 /* The default value for the net.unix.max_dgram_qlen sysctl */
 #define DEFAULT_UNIX_MAX_DGRAM_QLEN 512UL
 
-#if 1 /// elogind allows foreign cgroup controllers. (Well, needs them, actually)
-#ifndef SYSTEMD_CGROUP_CONTROLLER_LEGACY
-#  define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=elogind"
-#endif // SYSTEMD_CGROUP_CONTROLLER_LEGACY
-#ifndef SYSTEMD_CGROUP_CONTROLLER_HYBRID
-#  define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=elogind"
-#endif // SYSTEMD_CGROUP_CONTROLLER_HYBRID
-#ifndef SYSTEMD_CGROUP_CONTROLLER
-#  define SYSTEMD_CGROUP_CONTROLLER "_elogind"
-#endif // SYSTEMD_CGROUP_CONTROLLER
-#endif // 1
 #define SIGNALS_CRASH_HANDLER SIGSEGV,SIGILL,SIGFPE,SIGBUS,SIGQUIT,SIGABRT
 #define SIGNALS_IGNORE SIGPIPE
 
@@ -74,3 +63,5 @@
                 .un.sun_family = AF_UNIX,                       \
                 .un.sun_path = "\0/org/freedesktop/plymouthd",  \
         }
+
+#define VARLINK_ADDR_PATH_MANAGED_OOM "/run/systemd/io.system.ManagedOOM"

@@ -16,8 +16,8 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "errno-util.h"
 #include "extract-word.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -406,7 +406,7 @@ static int write_to_console(
         if (show_location) {
                 const char *lon = "", *loff = "";
                 if (log_get_show_color()) {
-                        lon = ansi_highlight_yellow();
+                        lon = ansi_highlight_yellow4();
                         loff = ansi_normal();
                 }
 

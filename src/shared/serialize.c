@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
 
@@ -14,7 +14,6 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-#if 0 /// UNNEEDED by elogind
 int serialize_item(FILE *f, const char *key, const char *value) {
         assert(f);
         assert(key);
@@ -131,7 +130,6 @@ int serialize_strv(FILE *f, const char *key, char **l) {
 
         return ret;
 }
-#endif // 0
 
 int deserialize_usec(const char *value, usec_t *ret) {
         int r;
@@ -144,60 +142,6 @@ int deserialize_usec(const char *value, usec_t *ret) {
 
         return 0;
 }
-
-#if 0 /// UNNEEDED by elogind
-int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
-        uint64_t a, b;
-        int r, pos;
-
-        assert(value);
-        assert(t);
-
-        pos = strspn(value, WHITESPACE);
-        if (value[pos] == '-')
-                return -EINVAL;
-        pos += strspn(value + pos, DIGITS);
-        pos += strspn(value + pos, WHITESPACE);
-        if (value[pos] == '-')
-                return -EINVAL;
-
-        r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
-        if (r != 2)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to parse dual timestamp value \"%s\".",
-                                       value);
-
-        if (value[pos] != '\0')
-                /* trailing garbage */
-                return -EINVAL;
-
-        t->realtime = a;
-        t->monotonic = b;
-
-        return 0;
-}
-
-int deserialize_environment(const char *value, char ***list) {
-        _cleanup_free_ char *unescaped = NULL;
-        int r;
-
-        assert(value);
-        assert(list);
-
-        /* Changes the *environment strv inline. */
-
-        r = cunescape(value, 0, &unescaped);
-        if (r < 0)
-                return log_error_errno(r, "Failed to unescape: %m");
-
-        r = strv_env_replace(list, unescaped);
-        if (r < 0)
-                return log_error_errno(r, "Failed to append environment variable: %m");
-
-        unescaped = NULL; /* now part of 'list' */
-        return 0;
-}
-#endif // 0
 
 int open_serialization_fd(const char *ident) {
         int fd;

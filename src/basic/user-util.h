@@ -1,14 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <grp.h>
-#if 0 /// No gshadow needed in elogind
-#if ENABLE_GSHADOW
-//#include <gshadow.h>
-#endif
-#endif // 0
 #include <pwd.h>
-//#include <shadow.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -21,18 +15,14 @@ static inline bool gid_is_valid(gid_t gid) {
 }
 
 int parse_uid(const char *s, uid_t* ret_uid);
-#if 0 /// UNNEEDED by elogind
 int parse_uid_range(const char *s, uid_t *ret_lower, uid_t *ret_upper);
-#endif // 0
 
 static inline int parse_gid(const char *s, gid_t *ret_gid) {
         return parse_uid(s, (uid_t*) ret_gid);
 }
 
 char* getlogname_malloc(void);
-#if 0 /// UNNEEDED by elogind
 char* getusername_malloc(void);
-#endif // 0
 
 typedef enum UserCredsFlags {
         USER_CREDS_PREFER_NSS    = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
@@ -41,31 +31,23 @@ typedef enum UserCredsFlags {
 } UserCredsFlags;
 
 int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags);
-#if 0 /// UNNEEDED by elogind
 int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags);
-#endif // 0
 
 char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
 
-#if 0 /// UNNEEDED by elogind
 int in_gid(gid_t gid);
 int in_group(const char *name);
 
 int merge_gid_lists(const gid_t *list1, size_t size1, const gid_t *list2, size_t size2, gid_t **result);
 int getgroups_alloc(gid_t** gids);
-#endif // 0
 
 int get_home_dir(char **ret);
-#if 0 /// UNNEEDED by elogind
 int get_shell(char **_ret);
-#endif // 0
 
 int reset_uid_gid(void);
 
-#if 0 /// UNNEEDED by elogind
 int take_etc_passwd_lock(const char *root);
-#endif // 0
 
 #define UID_INVALID ((uid_t) -1)
 #define GID_INVALID ((gid_t) -1)
@@ -79,28 +61,6 @@ static inline bool uid_is_system(uid_t uid) {
         return uid <= SYSTEM_UID_MAX;
 }
 
-#if 0 /// UNNEEDED by elogind
-static inline bool gid_is_system(gid_t gid) {
-        return gid <= SYSTEM_GID_MAX;
-}
-
-static inline bool uid_is_dynamic(uid_t uid) {
-        return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
-}
-
-static inline bool gid_is_dynamic(gid_t gid) {
-        return uid_is_dynamic((uid_t) gid);
-}
-
-static inline bool uid_is_container(uid_t uid) {
-        return CONTAINER_UID_BASE_MIN <= uid && uid <= CONTAINER_UID_BASE_MAX;
-}
-
-static inline bool gid_is_container(gid_t gid) {
-        return uid_is_container((uid_t) gid);
-}
-#endif // 0
-
 /* The following macros add 1 when converting things, since UID 0 is a valid UID, while the pointer
  * NULL is special */
 #define PTR_TO_UID(p) ((uid_t) (((uintptr_t) (p))-1))
@@ -109,11 +69,9 @@ static inline bool gid_is_container(gid_t gid) {
 #define PTR_TO_GID(p) ((gid_t) (((uintptr_t) (p))-1))
 #define GID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
 
-#if 0 /// UNNEEDED by elogind
 static inline bool userns_supported(void) {
         return access("/proc/self/uid_map", F_OK) >= 0;
 }
-#endif // 0
 
 typedef enum ValidUserFlags {
         VALID_USER_RELAX         = 1 << 0,
@@ -123,9 +81,9 @@ typedef enum ValidUserFlags {
 
 bool valid_user_group_name(const char *u, ValidUserFlags flags);
 bool valid_gecos(const char *d);
+char *mangle_gecos(const char *d);
 bool valid_home(const char *p);
 
-#if 0 /// UNNEEDED by elogind
 static inline bool valid_shell(const char *p) {
         /* We have the same requirements, so just piggy-back on the home check.
          *
@@ -134,24 +92,24 @@ static inline bool valid_shell(const char *p) {
          */
         return valid_home(p);
 }
-#endif // 0
 
 int maybe_setgroups(size_t size, const gid_t *list);
 
 bool synthesize_nobody(void);
 
-#if 0 /// UNNEEDED by elogind
 int fgetpwent_sane(FILE *stream, struct passwd **pw);
 int fgetspent_sane(FILE *stream, struct spwd **sp);
 int fgetgrent_sane(FILE *stream, struct group **gr);
-int putpwent_sane(const struct passwd *pw, FILE *stream);
-int putspent_sane(const struct spwd *sp, FILE *stream);
-int putgrent_sane(const struct group *gr, FILE *stream);
-#if ENABLE_GSHADOW
-int fgetsgent_sane(FILE *stream, struct sgrp **sg);
-int putsgent_sane(const struct sgrp *sg, FILE *stream);
-#endif
-
-#endif // 0
 
 bool is_nologin_shell(const char *shell);
+
+int is_this_me(const char *username);
+
+/* A locked *and* invalid password for "struct spwd"'s .sp_pwdp and "struct passwd"'s .pw_passwd field */
+#define PASSWORD_LOCKED_AND_INVALID "!*"
+
+/* A password indicating "look in shadow file, please!" for "struct passwd"'s .pw_passwd */
+#define PASSWORD_SEE_SHADOW "x"
+
+/* A password indicating "hey, no password required for login" */
+#define PASSWORD_NONE ""

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include <stdbool.h>
@@ -10,7 +10,6 @@
 int getxattr_malloc(const char *path, const char *name, char **value, bool allow_symlink);
 int fgetxattr_malloc(int fd, const char *name, char **value);
 
-#if 0 /// UNNEEDED by elogind
 int fgetxattrat_fake(
                 int dirfd,
                 const char *filename,
@@ -24,6 +23,5 @@ int fd_setcrtime(int fd, usec_t usec);
 int fd_getcrtime(int fd, usec_t *usec);
 int path_getcrtime(const char *p, usec_t *usec);
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags);
-#endif // 0
 
 int flistxattr_malloc(int fd, char **ret);

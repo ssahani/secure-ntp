@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-project('systemd', 'c',
-        version : '248',
+project('nts-timesync', 'c',
+        version : '0.1',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -85,15 +85,6 @@ rootprefixdir_noslash = rootprefixdir == '/' ? '' : rootprefixdir
 
 have_standalone_binaries = get_option('standalone-binaries')
 
-sysvinit_path = get_option('sysvinit-path')
-sysvrcnd_path = get_option('sysvrcnd-path')
-conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
-           description : 'SysV init scripts and rcN.d links are supported')
-
-if get_option('hibernate') and not get_option('initrd')
-        error('hibernate depends on initrd')
-endif
-
 conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
 conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
@@ -135,16 +126,11 @@ polkitpolicydir = join_paths(datadir, 'polkit-1/actions')
 polkitrulesdir = join_paths(datadir, 'polkit-1/rules.d')
 polkitpkladir = join_paths(localstatedir, 'lib/polkit-1/localauthority/10-vendor.d')
 xinitrcdir = get_option('xinitrcdir') == '' ? join_paths(sysconfdir, 'X11/xinit/xinitrc.d') : get_option('xinitrcdir')
-rpmmacrosdir = get_option('rpmmacrosdir')
-if rpmmacrosdir != 'no'
-        rpmmacrosdir = join_paths(prefixdir, rpmmacrosdir)
-endif
-modprobedir = join_paths(rootprefixdir, 'lib/modprobe.d')
 
 # Our own paths
 pkgdatadir = join_paths(datadir, 'systemd')
 environmentdir = join_paths(prefixdir, 'lib/environment.d')
-pkgsysconfdir = join_paths(sysconfdir, 'systemd')
+pkgsysconfdir = join_paths(sysconfdir, 'nts-timesync')
 userunitdir = join_paths(prefixdir, 'lib/systemd/user')
 userpresetdir = join_paths(prefixdir, 'lib/systemd/user-preset')
 tmpfilesdir = join_paths(prefixdir, 'lib/tmpfiles.d')
@@ -155,18 +141,8 @@ modulesloaddir = join_paths(prefixdir, 'lib/modules-load.d')
 networkdir = join_paths(rootprefixdir, 'lib/systemd/network')
 pkgincludedir = join_paths(includedir, 'systemd')
 systemgeneratordir = join_paths(rootlibexecdir, 'system-generators')
-usergeneratordir = join_paths(prefixdir, 'lib/systemd/user-generators')
-systemenvgeneratordir = join_paths(prefixdir, 'lib/systemd/system-environment-generators')
-userenvgeneratordir = join_paths(prefixdir, 'lib/systemd/user-environment-generators')
-systemshutdowndir = join_paths(rootlibexecdir, 'system-shutdown')
-systemsleepdir = join_paths(rootlibexecdir, 'system-sleep')
 systemunitdir = join_paths(rootprefixdir, 'lib/systemd/system')
 systempresetdir = join_paths(rootprefixdir, 'lib/systemd/system-preset')
-udevlibexecdir = join_paths(rootprefixdir, 'lib/udev')
-udevrulesdir = join_paths(udevlibexecdir, 'rules.d')
-udevhwdbdir = join_paths(udevlibexecdir, 'hwdb.d')
-catalogdir = join_paths(prefixdir, 'lib/systemd/catalog')
-kernelinstalldir = join_paths(prefixdir, 'lib/kernel/install.d')
 factorydir = join_paths(datadir, 'factory')
 bootlibdir = join_paths(prefixdir, 'lib/systemd/boot/efi')
 testsdir = join_paths(prefixdir, 'lib/systemd/tests')
@@ -196,75 +172,32 @@ if dbussystemservicedir == ''
         dbussystemservicedir = join_paths(datadir, 'dbus-1/system-services')
 endif
 
-pamlibdir = get_option('pamlibdir')
-if pamlibdir == ''
-        pamlibdir = join_paths(rootlibdir, 'security')
-endif
-
-pamconfdir = get_option('pamconfdir')
-if pamconfdir == ''
-        pamconfdir = join_paths(prefixdir, 'lib/pam.d')
-endif
-
-memory_accounting_default = get_option('memory-accounting-default')
 status_unit_format_default = get_option('status-unit-format-default')
 
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     join_paths(pkgsysconfdir, 'system'))
 conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
-conf.set_quoted('SYSTEM_SYSVINIT_PATH',                       sysvinit_path)
-conf.set_quoted('SYSTEM_SYSVRCND_PATH',                       sysvrcnd_path)
-conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
 conf.set10('ENABLE_FEXECVE',                                  get_option('fexecve'))
 
 conf.set_quoted('USER_CONFIG_UNIT_DIR',                       join_paths(pkgsysconfdir, 'user'))
-conf.set_quoted('USER_DATA_UNIT_DIR',                         userunitdir)
-conf.set_quoted('CERTIFICATE_ROOT',                           get_option('certificate-root'))
 conf.set_quoted('CATALOG_DATABASE',                           join_paths(catalogstatedir, 'database'))
 conf.set_quoted('SYSTEMD_BINARY_PATH',                        join_paths(rootlibexecdir, 'systemd'))
 conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 join_paths(rootlibexecdir, 'systemd-cgroups-agent'))
 conf.set_quoted('SYSTEMD_FSCK_PATH',                          join_paths(rootlibexecdir, 'systemd-fsck'))
-conf.set_quoted('SYSTEMD_GROWFS_PATH',                        join_paths(rootlibexecdir, 'systemd-growfs'))
-conf.set_quoted('SYSTEMD_MAKEFS_PATH',                        join_paths(rootlibexecdir, 'systemd-makefs'))
-conf.set_quoted('SYSTEMD_SHUTDOWN_BINARY_PATH',               join_paths(rootlibexecdir, 'systemd-shutdown'))
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      join_paths(rootbindir, 'systemctl'))
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', join_paths(rootbindir, 'systemd-tty-ask-password-agent'))
 conf.set_quoted('SYSTEMD_STDIO_BRIDGE_BINARY_PATH',           join_paths(bindir, 'systemd-stdio-bridge'))
 conf.set_quoted('ROOTPREFIX',                                 rootprefixdir)
 conf.set_quoted('ROOTPREFIX_NOSLASH',                         rootprefixdir_noslash)
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
-conf.set_quoted('RANDOM_SEED',                                join_paths(randomseeddir, 'random-seed'))
-conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    join_paths(rootlibexecdir, 'systemd-cryptsetup'))
-conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   join_paths(rootlibexecdir, 'systemd-veritysetup'))
-conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir)
-conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
-conf.set_quoted('SYSTEM_ENV_GENERATOR_DIR',                   systemenvgeneratordir)
-conf.set_quoted('USER_ENV_GENERATOR_DIR',                     userenvgeneratordir)
-conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
-conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
-conf.set_quoted('SYSTEMD_KBD_MODEL_MAP',                      join_paths(pkgdatadir, 'kbd-model-map'))
-conf.set_quoted('SYSTEMD_LANGUAGE_FALLBACK_MAP',              join_paths(pkgdatadir, 'language-fallback-map'))
 conf.set_quoted('SYSTEMD_TEST_DATA',                          join_paths(testsdir, 'testdata'))
-conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
-conf.set_quoted('UDEVLIBEXECDIR',                             udevlibexecdir)
 conf.set_quoted('POLKIT_AGENT_BINARY_PATH',                   join_paths(bindir, 'pkttyagent'))
 conf.set_quoted('LIBDIR',                                     libdir)
 conf.set_quoted('ROOTLIBDIR',                                 rootlibdir)
 conf.set_quoted('ROOTLIBEXECDIR',                             rootlibexecdir)
-conf.set_quoted('BOOTLIBDIR',                                 bootlibdir)
-conf.set_quoted('SYSTEMD_PULL_PATH',                          join_paths(rootlibexecdir, 'systemd-pull'))
-conf.set_quoted('SYSTEMD_IMPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-import'))
-conf.set_quoted('SYSTEMD_IMPORT_FS_PATH',                     join_paths(rootlibexecdir, 'systemd-import-fs'))
-conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlibexecdir, 'systemd-export'))
-conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
-conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
-conf.set_quoted('SYSTEMD_HOMEWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-homework'))
-conf.set_quoted('SYSTEMD_USERWORK_PATH',                      join_paths(rootlibexecdir, 'systemd-userwork'))
-conf.set10('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default)
-conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_YES_NO',           memory_accounting_default ? 'yes' : 'no')
 conf.set('STATUS_UNIT_FORMAT_DEFAULT',                        'STATUS_UNIT_FORMAT_' + status_unit_format_default.to_upper())
 
 substs.set('prefix',                                          prefixdir)
@@ -282,30 +215,9 @@ substs.set('systemunitdir',                                   systemunitdir)
 substs.set('userunitdir',                                     userunitdir)
 substs.set('systempresetdir',                                 systempresetdir)
 substs.set('userpresetdir',                                   userpresetdir)
-substs.set('udevhwdbdir',                                     udevhwdbdir)
-substs.set('udevrulesdir',                                    udevrulesdir)
-substs.set('udevlibexecdir',                                  udevlibexecdir)
 substs.set('environmentdir',                                  environmentdir)
-substs.set('catalogdir',                                      catalogdir)
-substs.set('tmpfilesdir',                                     tmpfilesdir)
-substs.set('sysusersdir',                                     sysusersdir)
-substs.set('sysctldir',                                       sysctldir)
-substs.set('binfmtdir',                                       binfmtdir)
-substs.set('modulesloaddir',                                  modulesloaddir)
-substs.set('modprobedir',                                     modprobedir)
-substs.set('systemgeneratordir',                              systemgeneratordir)
-substs.set('usergeneratordir',                                usergeneratordir)
-substs.set('systemenvgeneratordir',                           systemenvgeneratordir)
-substs.set('userenvgeneratordir',                             userenvgeneratordir)
-substs.set('systemshutdowndir',                               systemshutdowndir)
-substs.set('systemsleepdir',                                  systemsleepdir)
-substs.set('CERTIFICATEROOT',                                 get_option('certificate-root'))
 substs.set('RANDOM_SEED',                                     join_paths(randomseeddir, 'random-seed'))
-substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
-substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
 substs.set('SYSTEMD_TEST_DATA',                               join_paths(testsdir, 'testdata'))
-substs.set('RC_LOCAL_PATH',                                   get_option('rc-local'))
-substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
 substs.set('STATUS_UNIT_FORMAT_DEFAULT',                      status_unit_format_default)
 substs.set('HIGH_RLIMIT_NOFILE',                              conf.get('HIGH_RLIMIT_NOFILE'))
 substs.set('BUILD_ROOT',                                      project_build_root)
@@ -580,13 +492,7 @@ mkdir_p = 'mkdir -p $DESTDIR/@0@'
 # /usr/sbin, /sbin, and fall back to the default from middle column.
 progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['quotacheck', '/usr/sbin/quotacheck' ],
-         ['kmod',       '/usr/bin/kmod'        ],
-         ['kexec',      '/usr/sbin/kexec'      ],
          ['sulogin',    '/usr/sbin/sulogin'    ],
-         ['mount',      '/usr/bin/mount',      'MOUNT_PATH'],
-         ['umount',     '/usr/bin/umount',     'UMOUNT_PATH'],
-         ['loadkeys',   '/usr/bin/loadkeys',   'KBD_LOADKEYS'],
-         ['setfont',    '/usr/bin/setfont',    'KBD_SETFONT'],
          ['nologin',    '/usr/sbin/nologin',   ],
         ]
 foreach prog : progs
@@ -604,8 +510,6 @@ foreach prog : progs
         conf.set_quoted(name, path)
         substs.set(name, path)
 endforeach
-
-conf.set_quoted('TELINIT', get_option('telinit-path'))
 
 if run_command('ln', '--relative', '--help').returncode() != 0
         error('ln does not support --relative (added in coreutils 8.16)')
@@ -664,9 +568,6 @@ if fallback_hostname == '' or fallback_hostname[0] == '.' or fallback_hostname[0
         # the most obvious errors here so we don't fail with an assert later.
 endif
 conf.set_quoted('FALLBACK_HOSTNAME', fallback_hostname)
-
-default_net_naming_scheme = get_option('default-net-naming-scheme')
-conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
@@ -788,18 +689,6 @@ substs.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
 
-dev_kvm_mode = get_option('dev-kvm-mode')
-substs.set('DEV_KVM_MODE', dev_kvm_mode)
-conf.set10('DEV_KVM_UACCESS', dev_kvm_mode != '0666')
-group_render_mode = get_option('group-render-mode')
-substs.set('GROUP_RENDER_MODE', group_render_mode)
-conf.set10('GROUP_RENDER_UACCESS', group_render_mode != '0666')
-
-kill_user_processes = get_option('default-kill-user-processes')
-conf.set10('KILL_USER_PROCESSES', kill_user_processes)
-conf.set_quoted('KILL_USER_PROCESSES_YES_NO', kill_user_processes ? 'yes' : 'no')
-substs.set('KILL_USER_PROCESSES', kill_user_processes ? 'yes' : 'no')
-
 ntp_servers = get_option('ntp-servers')
 conf.set_quoted('NTP_SERVERS', ntp_servers)
 substs.set('NTP_SERVERS', ntp_servers)
@@ -821,9 +710,7 @@ service_watchdog = get_option('service-watchdog')
 watchdog_value = service_watchdog == '' ? '' : 'WatchdogSec=' + service_watchdog
 substs.set('SERVICE_WATCHDOG', watchdog_value)
 
-substs.set('SUSHELL', get_option('debug-shell'))
-substs.set('DEBUGTTY', get_option('debug-tty'))
-conf.set_quoted('DEBUGTTY', get_option('debug-tty'))
+conf.set10('LOG_TRACE', get_option('log-trace'))
 
 enable_debug_hashmap = false
 enable_debug_mmap_cache = false
@@ -881,25 +768,6 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
-want_bpf_framework = get_option('bpf-framework')
-bpf_framework_required = want_bpf_framework == 'true'
-
-libbpf = dependency('libbpf', required : bpf_framework_required, version : '>= 0.2')
-conf.set10('HAVE_LIBBPF', libbpf.found())
-
-if want_bpf_framework == 'false'
-        conf.set10('BPF_FRAMEWORK', 0)
-else
-        clang = find_program('clang', required : bpf_framework_required)
-        llvm_strip = find_program('llvm-strip', required : bpf_framework_required)
-        bpftool = find_program('bpftool', required : bpf_framework_required)
-        bpf_arches = ['x86_64']
-        deps_found = libbpf.found() and clang.found() and llvm_strip.found() and bpftool.found()
-        # Can build BPF program from source code in restricted C
-        conf.set10('BPF_FRAMEWORK',
-                bpf_arches.contains(host_machine.cpu_family()) and deps_found)
-endif
-
 want_acl = get_option('acl')
 if want_acl != 'false' and not skip_deps
         libacl = cc.find_library('acl', required : want_acl == 'true')
@@ -920,20 +788,6 @@ else
 endif
 conf.set10('HAVE_AUDIT', have)
 
-want_seccomp = get_option('seccomp')
-if want_seccomp != 'false' and not skip_deps
-        libseccomp = dependency('libseccomp',
-                                version : '>= 2.3.1',
-                                required : want_seccomp == 'true')
-        have = libseccomp.found()
-else
-        have = false
-        libseccomp = []
-endif
-conf.set10('HAVE_SECCOMP', have)
-
-
-
 want_selinux = get_option('selinux')
 if want_selinux != 'false' and not skip_deps
         libselinux = dependency('libselinux',
@@ -945,150 +799,6 @@ else
         libselinux = []
 endif
 conf.set10('HAVE_SELINUX', have)
-
-want_blkid = get_option('blkid')
-if want_blkid != 'false' and not skip_deps
-        libblkid = dependency('blkid', required : want_blkid == 'true')
-        have = libblkid.found()
-
-        conf.set10('HAVE_BLKID_PROBE_SET_HINT',
-                   have and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
-else
-        have = false
-        libblkid = []
-endif
-conf.set10('HAVE_BLKID', have)
-
-want_kmod = get_option('kmod')
-if want_kmod != 'false' and not skip_deps
-        libkmod = dependency('libkmod',
-                             version : '>= 15',
-                             required : want_kmod == 'true')
-        have = libkmod.found()
-else
-        have = false
-        libkmod = []
-endif
-conf.set10('HAVE_KMOD', have)
-
-want_pam = get_option('pam')
-if want_pam != 'false' and not skip_deps
-        libpam = cc.find_library('pam', required : want_pam == 'true')
-        libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
-        have = libpam.found() and libpam_misc.found()
-else
-        have = false
-        libpam = []
-        libpam_misc = []
-endif
-conf.set10('HAVE_PAM', have)
-
-want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false' and not skip_deps
-        libmicrohttpd = dependency('libmicrohttpd',
-                                   version : '>= 0.9.33',
-                                   required : want_microhttpd == 'true')
-        have = libmicrohttpd.found()
-else
-        have = false
-        libmicrohttpd = []
-endif
-conf.set10('HAVE_MICROHTTPD', have)
-
-want_libcryptsetup = get_option('libcryptsetup')
-if want_libcryptsetup != 'false' and not skip_deps
-        libcryptsetup = dependency('libcryptsetup',
-                                   version : '>= 2.0.1',
-                                   required : want_libcryptsetup == 'true')
-        have = libcryptsetup.found()
-
-        conf.set10('HAVE_CRYPT_SET_METADATA_SIZE',
-                   have and cc.has_function('crypt_set_metadata_size', dependencies : libcryptsetup))
-        conf.set10('HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY',
-                   have and cc.has_function('crypt_activate_by_signed_key', dependencies : libcryptsetup))
-        conf.set10('HAVE_CRYPT_TOKEN_MAX',
-                   have and cc.has_function('crypt_token_max', dependencies : libcryptsetup))
-else
-        have = false
-        libcryptsetup = []
-endif
-conf.set10('HAVE_LIBCRYPTSETUP', have)
-
-want_libcurl = get_option('libcurl')
-if want_libcurl != 'false' and not skip_deps
-        libcurl = dependency('libcurl',
-                             version : '>= 7.32.0',
-                             required : want_libcurl == 'true')
-        have = libcurl.found()
-else
-        have = false
-        libcurl = []
-endif
-conf.set10('HAVE_LIBCURL', have)
-conf.set10('CURL_NO_OLDIES', conf.get('BUILD_MODE_DEVELOPER') == 1)
-
-want_libidn = get_option('libidn')
-want_libidn2 = get_option('libidn2')
-if want_libidn == 'true' and want_libidn2 == 'true'
-        error('libidn and libidn2 cannot be requested simultaneously')
-endif
-
-if want_libidn2 != 'false' and want_libidn != 'true' and not skip_deps
-        libidn = dependency('libidn2',
-                            required : want_libidn2 == 'true')
-        have = libidn.found()
-else
-        have = false
-        libidn = []
-endif
-conf.set10('HAVE_LIBIDN2', have)
-if not have and want_libidn != 'false' and not skip_deps
-        # libidn is used for both libidn and libidn2 objects
-        libidn = dependency('libidn',
-                            required : want_libidn == 'true')
-        have = libidn.found()
-else
-        have = false
-endif
-conf.set10('HAVE_LIBIDN', have)
-
-want_libiptc = get_option('libiptc')
-if want_libiptc != 'false' and not skip_deps
-        libiptc = dependency('libiptc',
-                             required : want_libiptc == 'true')
-        have = libiptc.found()
-else
-        have = false
-        libiptc = []
-endif
-conf.set10('HAVE_LIBIPTC', have)
-
-want_qrencode = get_option('qrencode')
-if want_qrencode != 'false' and not skip_deps
-        libqrencode = dependency('libqrencode',
-                                 version : '>= 4',
-                                 required : want_qrencode == 'true')
-        have = libqrencode.found()
-else
-        have = false
-        libqrencode = []
-endif
-conf.set10('HAVE_QRENCODE', have)
-
-want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false' and not skip_deps
-        libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
-        libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
-        have = libgcrypt.found() and libgpg_error.found()
-else
-        have = false
-endif
-if not have
-        # link to neither of the libs if one is not found
-        libgcrypt = []
-        libgpg_error = []
-endif
-conf.set10('HAVE_GCRYPT', have)
 
 want_gnutls = get_option('gnutls')
 if want_gnutls != 'false' and not skip_deps
@@ -1113,133 +823,6 @@ else
         libopenssl = []
 endif
 conf.set10('HAVE_OPENSSL', have)
-
-want_p11kit = get_option('p11kit')
-if want_p11kit != 'false' and not skip_deps
-        libp11kit = dependency('p11-kit-1',
-                               version : '>= 0.23.3',
-                               required : want_p11kit == 'true')
-        have = libp11kit.found()
-else
-        have = false
-        libp11kit = []
-endif
-conf.set10('HAVE_P11KIT', have)
-
-want_libfido2 = get_option('libfido2')
-if want_libfido2 != 'false' and not skip_deps
-        libfido2 = dependency('libfido2',
-                              required : want_libfido2 == 'true')
-        have = libfido2.found()
-else
-        have = false
-        libfido2 = []
-endif
-conf.set10('HAVE_LIBFIDO2', have)
-
-want_tpm2 = get_option('tpm2')
-if want_tpm2 != 'false' and not skip_deps
-        tpm2 = dependency('tss2-esys tss2-rc tss2-mu',
-                          required : want_tpm2 == 'true')
-        have = tpm2.found()
-else
-        have = false
-        tpm2 = []
-endif
-conf.set10('HAVE_TPM2', have)
-
-want_elfutils = get_option('elfutils')
-if want_elfutils != 'false' and not skip_deps
-        libdw = dependency('libdw',
-                           required : want_elfutils == 'true')
-        have = libdw.found()
-else
-        have = false
-        libdw = []
-endif
-conf.set10('HAVE_ELFUTILS', have)
-
-want_zlib = get_option('zlib')
-if want_zlib != 'false' and not skip_deps
-        libz = dependency('zlib',
-                          required : want_zlib == 'true')
-        have = libz.found()
-else
-        have = false
-        libz = []
-endif
-conf.set10('HAVE_ZLIB', have)
-
-want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false' and not skip_deps
-        libbzip2 = cc.find_library('bz2',
-                                   required : want_bzip2 == 'true')
-        have = libbzip2.found()
-else
-        have = false
-        libbzip2 = []
-endif
-conf.set10('HAVE_BZIP2', have)
-
-want_xz = get_option('xz')
-if want_xz != 'false' and not skip_deps
-        libxz = dependency('liblzma',
-                           required : want_xz == 'true')
-        have_xz = libxz.found()
-else
-        have_xz = false
-        libxz = []
-endif
-conf.set10('HAVE_XZ', have_xz)
-
-want_lz4 = get_option('lz4')
-if want_lz4 != 'false' and not skip_deps
-        liblz4 = dependency('liblz4',
-                            version : '>= 1.3.0',
-                            required : want_lz4 == 'true')
-        have_lz4 = liblz4.found()
-else
-        have_lz4 = false
-        liblz4 = []
-endif
-conf.set10('HAVE_LZ4', have_lz4)
-
-want_zstd = get_option('zstd')
-if want_zstd != 'false' and not skip_deps
-        libzstd = dependency('libzstd',
-                             required : want_zstd == 'true',
-                             version : '>= 1.4.0')
-        have_zstd = libzstd.found()
-else
-        have_zstd = false
-        libzstd = []
-endif
-conf.set10('HAVE_ZSTD', have_zstd)
-
-conf.set10('HAVE_COMPRESSION', have_xz or have_lz4 or have_zstd)
-
-want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false' and not skip_deps
-        libxkbcommon = dependency('xkbcommon',
-                                  version : '>= 0.3.0',
-                                  required : want_xkbcommon == 'true')
-        have = libxkbcommon.found()
-else
-        have = false
-        libxkbcommon = []
-endif
-conf.set10('HAVE_XKBCOMMON', have)
-
-want_pcre2 = get_option('pcre2')
-if want_pcre2 != 'false'
-        libpcre2 = dependency('libpcre2-8',
-                              required : want_pcre2 == 'true')
-        have = libpcre2.found()
-else
-        have = false
-        libpcre2 = []
-endif
-conf.set10('HAVE_PCRE2', have)
 
 want_glib = get_option('glib')
 if want_glib != 'false' and not skip_deps
@@ -1271,47 +854,6 @@ else
         libdbus = []
 endif
 conf.set10('HAVE_DBUS', have)
-
-default_dnssec = get_option('default-dnssec')
-if skip_deps
-        default_dnssec = 'no'
-endif
-if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
-        message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
-        default_dnssec = 'no'
-endif
-conf.set('DEFAULT_DNSSEC_MODE',
-         'DNSSEC_' + default_dnssec.underscorify().to_upper())
-substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
-
-dns_over_tls = get_option('dns-over-tls')
-if dns_over_tls != 'false'
-        if dns_over_tls == 'openssl'
-                have_gnutls = false
-        else
-                have_gnutls = (conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0'))
-                if dns_over_tls == 'gnutls' and not have_gnutls
-                        error('DNS-over-TLS support was requested with gnutls, but dependencies are not available')
-                endif
-        endif
-        if dns_over_tls == 'gnutls' or have_gnutls
-                have_openssl = false
-        else
-                have_openssl = conf.get('HAVE_OPENSSL') == 1
-                if dns_over_tls != 'auto' and not have_openssl
-                        str = dns_over_tls == 'openssl' ? ' with openssl' : ''
-                        error('DNS-over-TLS support was requested@0@, but dependencies are not available'.format(str))
-                endif
-        endif
-        have = have_gnutls or have_openssl
-else
-        have = false
-        have_gnutls = false
-        have_openssl = false
-endif
-conf.set10('ENABLE_DNS_OVER_TLS', have)
-conf.set10('DNS_OVER_TLS_USE_GNUTLS', have_gnutls)
-conf.set10('DNS_OVER_TLS_USE_OPENSSL', have_openssl)
 
 foreach term : ['timesyncd']
         have = get_option(term)
@@ -1353,7 +895,6 @@ libsystemd_includes = [basic_includes, include_directories(
 
 includes = [libsystemd_includes, include_directories('src/shared')]
 
-subdir('po')
 subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
@@ -1372,19 +913,13 @@ install_libsystemd_static = static_library(
         pic : static_libsystemd_pic,
         dependencies : [threads,
                         librt,
-                        libxz,
-                        libzstd,
-                        liblz4,
-                        libbpf,
                         libcap,
-                        libblkid,
-                        libselinux,
-                        libgcrypt],
+                        libselinux],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 
 ############################################################
 
-subdir('src/secure-timesync')
+subdir('src/nts-timesync')
 
 ############################################################
 
@@ -1392,24 +927,24 @@ subdir('src/secure-timesync')
 if conf.get('ENABLE_TIMESYNCD') == 1
         executable(
                 'nts-timesyncd',
-                systemd_timesyncd_sources,
+                nts_timesyncd_sources,
                 include_directories : includes,
-                link_with : [libtimesyncd_core],
+                link_with : [lib_nts_timesyncd_core],
                 dependencies : [threads,
                                 libgnutls,
                                 libm],
-                install_rpath : rootlibexecdir,
+                install_rpath : bindir,
                 install : true,
-                install_dir : rootlibexecdir)
+                install_dir : bindir)
 
         executable(
                 'systemd-time-wait-sync',
-                'src/secure-timesync/wait-sync.c',
+                'src/nts-timesync/wait-sync.c',
                 include_directories : includes,
-                link_with : [libtimesyncd_core],
-                install_rpath : rootlibexecdir,
+                link_with : [lib_nts_timesyncd_core],
+                install_rpath : bindir,
                 install : true,
-                install_dir : rootlibexecdir)
+                install_dir : bindir)
 endif
 
 
@@ -1473,18 +1008,9 @@ status = [
         'include directory:                 @0@'.format(includedir),
         'lib directory:                     @0@'.format(libdir),
         'rootlib directory:                 @0@'.format(rootlibdir),
-        'SysV init scripts:                 @0@'.format(sysvinit_path),
-        'SysV rc?.d directories:            @0@'.format(sysvrcnd_path),
-        'PAM modules directory:             @0@'.format(pamlibdir),
-        'PAM configuration directory:       @0@'.format(pamconfdir),
-        'RPM macros directory:              @0@'.format(rpmmacrosdir),
-        'modprobe.d directory:              @0@'.format(modprobedir),
         'D-Bus policy directory:            @0@'.format(dbuspolicydir),
         'D-Bus session directory:           @0@'.format(dbussessionservicedir),
         'D-Bus system directory:            @0@'.format(dbussystemservicedir),
-        'extra start script:                @0@'.format(get_option('rc-local')),
-        'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
-                                                              get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
         'users GID:                         @0@'.format(substs.get('USERS_GID')),
         'system UIDs:                       <=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
@@ -1493,9 +1019,6 @@ status = [
                                                                         conf.get('SYSTEM_ALLOC_GID_MIN')),
         'dynamic UIDs:                      @0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
         'container UID bases:               @0@…@1@'.format(container_uid_base_min, container_uid_base_max),
-        '/dev/kvm access mode:              @0@'.format(get_option('dev-kvm-mode')),
-        'render group access mode:          @0@'.format(get_option('group-render-mode')),
-        'certificate root directory:        @0@'.format(get_option('certificate-root')),
         'nobody user name:                  @0@'.format(nobody_user),
         'nobody group name:                 @0@'.format(nobody_group),
         'fallback hostname:                 @0@'.format(get_option('fallback-hostname')),
@@ -1523,36 +1046,11 @@ foreach tuple : [
         # dependencies
         ['ACL'],
         ['AUDIT'],
-        ['AppArmor'],
-        ['IMA'],
-        ['PAM'],
         ['SECCOMP'],
         ['SELinux'],
-        ['SMACK'],
-        ['blkid'],
-        ['elfutils'],
-        ['gcrypt'],
         ['gnutls'],
-        ['libbpf'],
-        ['libcryptsetup'],
-        ['libcurl'],
-        ['libfdisk'],
-        ['libfido2'],
-        ['libidn'],
-        ['libidn2'],
-        ['libiptc'],
-        ['microhttpd'],
         ['openssl'],
         ['pcre2'],
-        ['qrencode'],
-        ['tpm2'],
-
-        # compression libs
-        ['zstd'],
-        ['lz4'],
-        ['xz'],
-        ['zlib'],
-        ['bzip2'],
 
         # components
         ['timesyncd'],
@@ -1562,7 +1060,6 @@ foreach tuple : [
         ['dbus'],
         ['glib'],
         ['compat-mutable-uid-boundaries'],
-        ['link-networkd-shared',  get_option('link-networkd-shared')],
         ['link-timesyncd-shared', get_option('link-timesyncd-shared')],
         ['fexecve'],
         ['standalone-binaries',   get_option('standalone-binaries')],
