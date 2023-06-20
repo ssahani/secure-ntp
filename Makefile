@@ -126,14 +126,6 @@ $(CONFIG): $(BUILDDIR) $(MESON_LST)
 			-Drootprefix=$(ROOTPREFIX) \
 			-Dsysconfdir=$(SYSCONFDIR) \
 			-Dacl=true \
-			-Dcgroup-controller=$(CGCONTROL) \
-			-Ddefault-hierarchy=$(CGDEFAULT) \
-			-Defi=true \
-			-Dhtml=auto \
-			-Dman=auto \
-			-Dpam=true \
-			-Dselinux=false \
-			-Dsmack=true \
 	)
 
 #endif // 0

@@ -42,15 +42,6 @@ conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
 
 
-want_ossfuzz = get_option('oss-fuzz')
-want_libfuzzer = get_option('llvm-fuzz')
-if want_ossfuzz + want_libfuzzer > 1
-        error('only one of oss-fuzz or llvm-fuzz can be specified')
-endif
-
-skip_deps = want_ossfuzz or want_libfuzzer
-fuzzer_build = want_ossfuzz or want_libfuzzer
-
 #####################################################################
 
 if get_option('split-usr') == 'auto'
@@ -768,18 +759,8 @@ if not libcap.found()
         libcap = cc.find_library('cap')
 endif
 
-want_acl = get_option('acl')
-if want_acl != 'false' and not skip_deps
-        libacl = cc.find_library('acl', required : want_acl == 'true')
-        have = libacl.found()
-else
-        have = false
-        libacl = []
-endif
-conf.set10('HAVE_ACL', have)
-
 want_audit = get_option('audit')
-if want_audit != 'false' and not skip_deps
+if want_audit != 'false'
         libaudit = dependency('audit', required : want_audit == 'true')
         have = libaudit.found()
 else
@@ -789,7 +770,7 @@ endif
 conf.set10('HAVE_AUDIT', have)
 
 want_selinux = get_option('selinux')
-if want_selinux != 'false' and not skip_deps
+if want_selinux != 'false'
         libselinux = dependency('libselinux',
                                 version : '>= 2.1.9',
                                 required : want_selinux == 'true')
@@ -801,7 +782,7 @@ endif
 conf.set10('HAVE_SELINUX', have)
 
 want_gnutls = get_option('gnutls')
-if want_gnutls != 'false' and not skip_deps
+if want_gnutls != 'false'
         libgnutls = dependency('gnutls',
                                version : '>= 3.1.4',
                                required : want_gnutls == 'true')
@@ -813,7 +794,7 @@ endif
 conf.set10('HAVE_GNUTLS', have)
 
 want_openssl = get_option('openssl')
-if want_openssl != 'false' and not skip_deps
+if want_openssl != 'false'
         libopenssl = dependency('openssl',
                                 version : '>= 1.1.0',
                                 required : want_openssl == 'true')
@@ -825,7 +806,7 @@ endif
 conf.set10('HAVE_OPENSSL', have)
 
 want_glib = get_option('glib')
-if want_glib != 'false' and not skip_deps
+if want_glib != 'false'
         libglib =    dependency('glib-2.0',
                                 version : '>= 2.22.0',
                                 required : want_glib == 'true')
@@ -844,7 +825,7 @@ endif
 conf.set10('HAVE_GLIB', have)
 
 want_dbus = get_option('dbus')
-if want_dbus != 'false' and not skip_deps
+if want_dbus != 'false'
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
                              required : want_dbus == 'true')
