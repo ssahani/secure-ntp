@@ -53,10 +53,4 @@ libsystemd_sym_path = join_paths(meson.current_source_dir(), 'libsystemd.sym')
 static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
 
-configure_file(
-        input : 'libsystemd.pc.in',
-        output : 'libsystemd.pc',
-        configuration : substs,
-        install_dir : pkgconfiglibdir == 'no' ? '' : pkgconfiglibdir)
-
 ############################################################

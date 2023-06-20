@@ -903,10 +903,7 @@ install_libsystemd_static = static_library(
 subdir('src/nts-timesync')
 
 ############################################################
-
-
-if conf.get('ENABLE_TIMESYNCD') == 1
-        executable(
+executable(
                 'nts-timesyncd',
                 nts_timesyncd_sources,
                 include_directories : includes,
@@ -917,17 +914,6 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 install_rpath : bindir,
                 install : true,
                 install_dir : bindir)
-
-        executable(
-                'systemd-time-wait-sync',
-                'src/nts-timesync/wait-sync.c',
-                include_directories : includes,
-                link_with : [lib_nts_timesyncd_core],
-                install_rpath : bindir,
-                install : true,
-                install_dir : bindir)
-endif
-
 
 ############################################################
 if git.found()

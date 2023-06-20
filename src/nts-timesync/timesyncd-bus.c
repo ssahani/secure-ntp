@@ -182,7 +182,7 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", manager_vtable, m);
+        r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/ntstimesync1", "org.freedesktop.ntstimesync1.Manager", manager_vtable, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
@@ -190,7 +190,7 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.timesync1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.ntstimesync1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
