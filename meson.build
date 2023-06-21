@@ -880,6 +880,7 @@ subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
+subdir('units')
 
 install_libsystemd_static = static_library(
         'systemd',
