@@ -881,6 +881,7 @@ subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
 subdir('units')
+subdir('conf')
 
 install_libsystemd_static = static_library(
         'systemd',
