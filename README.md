@@ -1,5 +1,6 @@
 #### Introduction
 ============
+
 Configures NTP using Key Establishment (NTS-KE) protocol. `nts-timesyncd` is the systemd project's 
 `timesyncd`, extracted out to be a standalone daemon.  It allows to Computers use the 
 Network Time Protocol (NTP) to synchronize
