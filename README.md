@@ -1,10 +1,8 @@
-nts-timesyncd: Configures NTP using Key Establishment (NTS-KE) protocol.
-
-Introduction
+#### Introduction
 ============
-
-nts-timesyncd is the systemd project's "timesyncd", extracted out to be a
-standalone daemon.  It allows to Computers use the Network Time Protocol (NTP) to synchronize
+Configures NTP using Key Establishment (NTS-KE) protocol. `nts-timesyncd` is the systemd project's 
+`timesyncd`, extracted out to be a standalone daemon.  It allows to Computers use the 
+Network Time Protocol (NTP) to synchronize
 their system clocks over the internet. NTP is one of the few unsecured internet
 protocols still in common use. An attacker that can observe network traffic between
 a client and server can feed the client with bogus data and, depending on the client’s
@@ -26,7 +24,7 @@ All of the blame should go to Andy Wingo, who extracted etimesyncd
 from systemd.
 All complaints should go to Sven Eden, who is maintaining etimesyncd.
 
-Contributing
+#### Contributing
 ============
 
 nts-timesyncd was branched from systemd version 253. It implements
@@ -45,13 +43,13 @@ lists further possibilities to contact the maintainers.
 Finally, bug reports:
   https://github.com/nts-timesyncd/nts-timesyncd/issues
 
-License
+#### License
 =======
 
 LGPLv2.1+ for all code
   - except `src/basic/siphash24.c` which is CC0 Public Domain
 
-Dependencies
+#### Dependencies
 ============
 
   * glibc
@@ -100,7 +98,7 @@ Jun 28 21:53:00 Zeus nts-timesyncd[594513]: Initial clock synchronization to Wed
 ```
 
 
-Example configration
+#### Example configration
 ------------
 
 ```
