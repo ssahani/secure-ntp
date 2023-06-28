@@ -9,8 +9,11 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
+#include "missing_syscall.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 #include "time-util.h"
 #include "user-util.h"
 
@@ -35,14 +38,15 @@ static const char *e(int r) {
         return r == 0 ? "OK" : errno_to_name(r);
 }
 
-static void test_login(void) {
-        _cleanup_close_pair_ int pair[2] = { -1, -1 };
+TEST(login) {
+        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
         _cleanup_free_ char *pp = NULL, *qq = NULL,
                 *display_session = NULL, *cgroup = NULL,
                 *display = NULL, *remote_user = NULL, *remote_host = NULL,
                 *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
                 *seat = NULL, *session = NULL,
                 *unit = NULL, *user_unit = NULL, *slice = NULL;
+        _cleanup_close_ int pidfd = -EBADF;
         int r;
         uid_t u, u2 = UID_INVALID;
         char *t, **seats = NULL, **sessions = NULL;
@@ -69,6 +73,35 @@ static void test_login(void) {
         r = sd_pid_get_cgroup(0, &cgroup);
         log_info("sd_pid_get_cgroup(0, …) → %s / \"%s\"", e(r), strnull(cgroup));
         assert_se(IN_SET(r, 0, -ENOMEDIUM));
+
+        pidfd = pidfd_open(getpid_cached(), 0);
+        if (pidfd >= 0) {
+                _cleanup_free_ char *cgroup2 = NULL, *session2 = NULL,
+                        *unit2 = NULL, *user_unit2 = NULL, *slice2 = NULL;
+
+                r = sd_pidfd_get_unit(pidfd, &unit2);
+                log_info("sd_pidfd_get_unit(pidfd, …) → %s / \"%s\"", e(r), strnull(unit2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_user_unit(pidfd, &user_unit2);
+                log_info("sd_pidfd_get_user_unit(pidfd, …) → %s / \"%s\"", e(r), strnull(user_unit2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_slice(pidfd, &slice2);
+                log_info("sd_pidfd_get_slice(pidfd, …) → %s / \"%s\"", e(r), strnull(slice2));
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_owner_uid(pidfd, &u2);
+                log_info("sd_pidfd_get_owner_uid(pidfd, …) → %s / "UID_FMT, e(r), u2);
+                assert_se(IN_SET(r, 0, -ENODATA));
+
+                r = sd_pidfd_get_session(pidfd, &session2);
+                log_info("sd_pidfd_get_session(pidfd, …) → %s / \"%s\"", e(r), strnull(session2));
+
+                r = sd_pidfd_get_cgroup(pidfd, &cgroup2);
+                log_info("sd_pidfd_get_cgroup(pidfd, …) → %s / \"%s\"", e(r), strnull(cgroup2));
+                assert_se(IN_SET(r, 0, -ENOMEDIUM));
+        }
 
         r = sd_uid_get_display(u2, &display_session);
         log_info("sd_uid_get_display("UID_FMT", …) → %s / \"%s\"", u2, e(r), strnull(display_session));
@@ -259,9 +292,12 @@ static void test_login(void) {
         }
 }
 
-static void test_monitor(void) {
+TEST(monitor) {
         sd_login_monitor *m = NULL;
         int r;
+
+        if (!streq_ptr(saved_argv[1], "-m"))
+                return;
 
         assert_se(sd_login_monitor_new("session", &m) == 0);
 
@@ -290,16 +326,9 @@ static void test_monitor(void) {
         sd_login_monitor_unref(m);
 }
 
-int main(int argc, char* argv[]) {
-        log_parse_environment();
-        log_open();
-
+static int intro(void) {
         log_info("/* Information printed is from the live system */");
-
-        test_login();
-
-        if (streq_ptr(argv[1], "-m"))
-                test_monitor();
-
-        return 0;
+        return EXIT_SUCCESS;
 }
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

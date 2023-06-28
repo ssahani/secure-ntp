@@ -3,7 +3,10 @@
 #include <errno.h>
 #include <stdarg.h>
 
+#include "errno-util.h"
 #include "macro.h"
+#include "missing_syscall.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -39,10 +42,7 @@ int reset_signal_mask(void) {
         if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        if (sigprocmask(SIG_SETMASK, &ss, NULL) < 0)
-                return -errno;
-
-        return 0;
+        return RET_NERRNO(sigprocmask(SIG_SETMASK, &ss, NULL));
 }
 
 int sigaction_many_internal(const struct sigaction *sa, ...) {
@@ -119,7 +119,7 @@ int sigprocmask_many(int how, sigset_t *old, ...) {
         return 0;
 }
 
-static const char *const __signal_table[] = {
+static const char *const static_signal_table[] = {
         [SIGHUP] = "HUP",
         [SIGINT] = "INT",
         [SIGQUIT] = "QUIT",
@@ -155,13 +155,13 @@ static const char *const __signal_table[] = {
         [SIGSYS] = "SYS"
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(__signal, int);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(static_signal, int);
 
 const char *signal_to_string(int signo) {
         static thread_local char buf[STRLEN("RTMIN+") + DECIMAL_STR_MAX(int)];
         const char *name;
 
-        name = __signal_to_string(signo);
+        name = static_signal_to_string(signo);
         if (name)
                 return name;
 
@@ -190,7 +190,7 @@ int signal_from_string(const char *s) {
                 s += 3;
 
         /* Check that the input is a signal name. */
-        signo = __signal_from_string(s);
+        signo = static_signal_from_string(s);
         if (signo > 0)
                 return signo;
 
@@ -247,9 +247,57 @@ int signal_is_blocked(int sig) {
         if (r != 0)
                 return -r;
 
-        r = sigismember(&ss, sig);
-        if (r < 0)
+        return RET_NERRNO(sigismember(&ss, sig));
+}
+
+int pop_pending_signal_internal(int sig, ...) {
+        sigset_t ss;
+        va_list ap;
+        int r;
+
+        if (sig < 0) /* Empty list? */
+                return -EINVAL;
+
+        if (sigemptyset(&ss) < 0)
                 return -errno;
 
-        return r;
+        /* Add first signal (if the signal is zero, we'll silently skip it, to make it easier to build
+         * parameter lists where some element are sometimes off, similar to how sigset_add_many_ap() handles
+         * this.) */
+        if (sig > 0 && sigaddset(&ss, sig) < 0)
+                return -errno;
+
+        /* Add all other signals */
+        va_start(ap, sig);
+        r = sigset_add_many_ap(&ss, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        r = sigtimedwait(&ss, NULL, &(struct timespec) { 0, 0 });
+        if (r < 0) {
+                if (errno == EAGAIN)
+                        return 0;
+
+                return -errno;
+        }
+
+        return r; /* Returns the signal popped */
+}
+
+void propagate_signal(int sig, siginfo_t *siginfo) {
+        pid_t p;
+
+        /* To be called from a signal handler. Will raise the same signal again, in our process + in our threads.
+         *
+         * Note that we use raw_getpid() instead of getpid_cached(). We might have forked with raw_clone()
+         * earlier (see PID 1), and hence let's go to the raw syscall here. In particular as this is not
+         * performance sensitive code.
+         *
+         * Note that we use kill() rather than raise() as fallback, for similar reasons. */
+
+        p = raw_getpid();
+
+        if (rt_tgsigqueueinfo(p, gettid(), sig, siginfo) < 0)
+                assert_se(kill(p, sig) >= 0);
 }

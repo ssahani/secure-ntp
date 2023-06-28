@@ -4,6 +4,7 @@
  * Use 'ninja -C build update-syscall-tables' to download new syscall tables,
  * and 'ninja -C build update-syscall-header' to regenerate this file.
  */
+#pragma once
 
 /* Note: if this code looks strange, this is because it is derived from the same
  * template as the per-syscall blocks below. */
@@ -13,6 +14,7 @@
 #  elif defined(__arm__)
 #  elif defined(__i386__)
 #  elif defined(__ia64__)
+#  elif defined(__loongarch64)
 #  elif defined(__m68k__)
 #  elif defined(_MIPS_SIM)
 #    if _MIPS_SIM == _MIPS_SIM_ABI32
@@ -21,8 +23,14 @@
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
 #  elif defined(__powerpc__)
-#  elif defined(__riscv) && defined(__LP64__)
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#    elif __riscv_xlen == 64
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #  elif defined(__sparc__)
 #  elif defined(__x86_64__)
@@ -47,6 +55,8 @@
 #    define systemd_NR_bpf 357
 #  elif defined(__ia64__)
 #    define systemd_NR_bpf 1341
+#  elif defined(__loongarch64)
+#    define systemd_NR_bpf 280
 #  elif defined(__m68k__)
 #    define systemd_NR_bpf 354
 #  elif defined(_MIPS_SIM)
@@ -59,10 +69,18 @@
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_bpf 341
 #  elif defined(__powerpc__)
 #    define systemd_NR_bpf 361
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_bpf 280
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_bpf 280
+#    elif __riscv_xlen == 64
+#      define systemd_NR_bpf 280
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_bpf 351
 #  elif defined(__sparc__)
@@ -105,6 +123,8 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    define systemd_NR_close_range 436
 #  elif defined(__ia64__)
 #    define systemd_NR_close_range 1460
+#  elif defined(__loongarch64)
+#    define systemd_NR_close_range 436
 #  elif defined(__m68k__)
 #    define systemd_NR_close_range 436
 #  elif defined(_MIPS_SIM)
@@ -117,10 +137,18 @@ assert_cc(__NR_bpf == systemd_NR_bpf);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_close_range 436
 #  elif defined(__powerpc__)
 #    define systemd_NR_close_range 436
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_close_range 436
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_close_range 436
+#    elif __riscv_xlen == 64
+#      define systemd_NR_close_range 436
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_close_range 436
 #  elif defined(__sparc__)
@@ -163,6 +191,8 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    define systemd_NR_copy_file_range 377
 #  elif defined(__ia64__)
 #    define systemd_NR_copy_file_range 1347
+#  elif defined(__loongarch64)
+#    define systemd_NR_copy_file_range 285
 #  elif defined(__m68k__)
 #    define systemd_NR_copy_file_range 376
 #  elif defined(_MIPS_SIM)
@@ -175,10 +205,18 @@ assert_cc(__NR_close_range == systemd_NR_close_range);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_copy_file_range 346
 #  elif defined(__powerpc__)
 #    define systemd_NR_copy_file_range 379
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_copy_file_range 285
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_copy_file_range 285
+#    elif __riscv_xlen == 64
+#      define systemd_NR_copy_file_range 285
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_copy_file_range 375
 #  elif defined(__sparc__)
@@ -208,64 +246,6 @@ assert_cc(__NR_copy_file_range == systemd_NR_copy_file_range);
 #  endif
 #endif
 
-#ifndef __IGNORE_epoll_pwait2
-#  if defined(__aarch64__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__alpha__)
-#    define systemd_NR_epoll_pwait2 551
-#  elif defined(__arc__) || defined(__tilegx__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__arm__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__i386__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__ia64__)
-#    define systemd_NR_epoll_pwait2 1465
-#  elif defined(__m68k__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(_MIPS_SIM)
-#    if _MIPS_SIM == _MIPS_SIM_ABI32
-#      define systemd_NR_epoll_pwait2 4441
-#    elif _MIPS_SIM == _MIPS_SIM_NABI32
-#      define systemd_NR_epoll_pwait2 6441
-#    elif _MIPS_SIM == _MIPS_SIM_ABI64
-#      define systemd_NR_epoll_pwait2 5441
-#    else
-#      error "Unknown MIPS ABI"
-#    endif
-#  elif defined(__powerpc__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__s390__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__sparc__)
-#    define systemd_NR_epoll_pwait2 441
-#  elif defined(__x86_64__)
-#    if defined(__ILP32__)
-#      define systemd_NR_epoll_pwait2 (441 | /* __X32_SYSCALL_BIT */ 0x40000000)
-#    else
-#      define systemd_NR_epoll_pwait2 441
-#    endif
-#  elif !defined(missing_arch_template)
-#    warning "epoll_pwait2() syscall number is unknown for your architecture"
-#  endif
-
-/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
-#  if defined __NR_epoll_pwait2 && __NR_epoll_pwait2 >= 0
-#    if defined systemd_NR_epoll_pwait2
-assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
-#    endif
-#  else
-#    if defined __NR_epoll_pwait2
-#      undef __NR_epoll_pwait2
-#    endif
-#    if defined systemd_NR_epoll_pwait2 && systemd_NR_epoll_pwait2 >= 0
-#      define __NR_epoll_pwait2 systemd_NR_epoll_pwait2
-#    endif
-#  endif
-#endif
-
 #ifndef __IGNORE_getrandom
 #  if defined(__aarch64__)
 #    define systemd_NR_getrandom 278
@@ -279,6 +259,8 @@ assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
 #    define systemd_NR_getrandom 355
 #  elif defined(__ia64__)
 #    define systemd_NR_getrandom 1339
+#  elif defined(__loongarch64)
+#    define systemd_NR_getrandom 278
 #  elif defined(__m68k__)
 #    define systemd_NR_getrandom 352
 #  elif defined(_MIPS_SIM)
@@ -291,10 +273,18 @@ assert_cc(__NR_epoll_pwait2 == systemd_NR_epoll_pwait2);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_getrandom 339
 #  elif defined(__powerpc__)
 #    define systemd_NR_getrandom 359
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_getrandom 278
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_getrandom 278
+#    elif __riscv_xlen == 64
+#      define systemd_NR_getrandom 278
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_getrandom 349
 #  elif defined(__sparc__)
@@ -337,6 +327,8 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    define systemd_NR_memfd_create 356
 #  elif defined(__ia64__)
 #    define systemd_NR_memfd_create 1340
+#  elif defined(__loongarch64)
+#    define systemd_NR_memfd_create 279
 #  elif defined(__m68k__)
 #    define systemd_NR_memfd_create 353
 #  elif defined(_MIPS_SIM)
@@ -349,10 +341,18 @@ assert_cc(__NR_getrandom == systemd_NR_getrandom);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_memfd_create 340
 #  elif defined(__powerpc__)
 #    define systemd_NR_memfd_create 360
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_memfd_create 279
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_memfd_create 279
+#    elif __riscv_xlen == 64
+#      define systemd_NR_memfd_create 279
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_memfd_create 350
 #  elif defined(__sparc__)
@@ -395,6 +395,8 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    define systemd_NR_mount_setattr 442
 #  elif defined(__ia64__)
 #    define systemd_NR_mount_setattr 1466
+#  elif defined(__loongarch64)
+#    define systemd_NR_mount_setattr 442
 #  elif defined(__m68k__)
 #    define systemd_NR_mount_setattr 442
 #  elif defined(_MIPS_SIM)
@@ -407,10 +409,18 @@ assert_cc(__NR_memfd_create == systemd_NR_memfd_create);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_mount_setattr 442
 #  elif defined(__powerpc__)
 #    define systemd_NR_mount_setattr 442
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_mount_setattr 442
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_mount_setattr 442
+#    elif __riscv_xlen == 64
+#      define systemd_NR_mount_setattr 442
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_mount_setattr 442
 #  elif defined(__sparc__)
@@ -453,6 +463,8 @@ assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
 #    define systemd_NR_move_mount 429
 #  elif defined(__ia64__)
 #    define systemd_NR_move_mount 1453
+#  elif defined(__loongarch64)
+#    define systemd_NR_move_mount 429
 #  elif defined(__m68k__)
 #    define systemd_NR_move_mount 429
 #  elif defined(_MIPS_SIM)
@@ -465,10 +477,18 @@ assert_cc(__NR_mount_setattr == systemd_NR_mount_setattr);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_move_mount 429
 #  elif defined(__powerpc__)
 #    define systemd_NR_move_mount 429
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_move_mount 429
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_move_mount 429
+#    elif __riscv_xlen == 64
+#      define systemd_NR_move_mount 429
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_move_mount 429
 #  elif defined(__sparc__)
@@ -511,6 +531,8 @@ assert_cc(__NR_move_mount == systemd_NR_move_mount);
 #    define systemd_NR_name_to_handle_at 341
 #  elif defined(__ia64__)
 #    define systemd_NR_name_to_handle_at 1326
+#  elif defined(__loongarch64)
+#    define systemd_NR_name_to_handle_at 264
 #  elif defined(__m68k__)
 #    define systemd_NR_name_to_handle_at 340
 #  elif defined(_MIPS_SIM)
@@ -523,10 +545,18 @@ assert_cc(__NR_move_mount == systemd_NR_move_mount);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_name_to_handle_at 325
 #  elif defined(__powerpc__)
 #    define systemd_NR_name_to_handle_at 345
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_name_to_handle_at 264
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_name_to_handle_at 264
+#    elif __riscv_xlen == 64
+#      define systemd_NR_name_to_handle_at 264
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_name_to_handle_at 335
 #  elif defined(__sparc__)
@@ -569,6 +599,8 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    define systemd_NR_open_tree 428
 #  elif defined(__ia64__)
 #    define systemd_NR_open_tree 1452
+#  elif defined(__loongarch64)
+#    define systemd_NR_open_tree 428
 #  elif defined(__m68k__)
 #    define systemd_NR_open_tree 428
 #  elif defined(_MIPS_SIM)
@@ -581,10 +613,18 @@ assert_cc(__NR_name_to_handle_at == systemd_NR_name_to_handle_at);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_open_tree 428
 #  elif defined(__powerpc__)
 #    define systemd_NR_open_tree 428
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_open_tree 428
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_open_tree 428
+#    elif __riscv_xlen == 64
+#      define systemd_NR_open_tree 428
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_open_tree 428
 #  elif defined(__sparc__)
@@ -614,6 +654,74 @@ assert_cc(__NR_open_tree == systemd_NR_open_tree);
 #  endif
 #endif
 
+#ifndef __IGNORE_openat2
+#  if defined(__aarch64__)
+#    define systemd_NR_openat2 437
+#  elif defined(__alpha__)
+#    define systemd_NR_openat2 547
+#  elif defined(__arc__) || defined(__tilegx__)
+#    define systemd_NR_openat2 437
+#  elif defined(__arm__)
+#    define systemd_NR_openat2 437
+#  elif defined(__i386__)
+#    define systemd_NR_openat2 437
+#  elif defined(__ia64__)
+#    define systemd_NR_openat2 1461
+#  elif defined(__loongarch64)
+#    define systemd_NR_openat2 437
+#  elif defined(__m68k__)
+#    define systemd_NR_openat2 437
+#  elif defined(_MIPS_SIM)
+#    if _MIPS_SIM == _MIPS_SIM_ABI32
+#      define systemd_NR_openat2 4437
+#    elif _MIPS_SIM == _MIPS_SIM_NABI32
+#      define systemd_NR_openat2 6437
+#    elif _MIPS_SIM == _MIPS_SIM_ABI64
+#      define systemd_NR_openat2 5437
+#    else
+#      error "Unknown MIPS ABI"
+#    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_openat2 437
+#  elif defined(__powerpc__)
+#    define systemd_NR_openat2 437
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_openat2 437
+#    elif __riscv_xlen == 64
+#      define systemd_NR_openat2 437
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
+#  elif defined(__s390__)
+#    define systemd_NR_openat2 437
+#  elif defined(__sparc__)
+#    define systemd_NR_openat2 437
+#  elif defined(__x86_64__)
+#    if defined(__ILP32__)
+#      define systemd_NR_openat2 (437 | /* __X32_SYSCALL_BIT */ 0x40000000)
+#    else
+#      define systemd_NR_openat2 437
+#    endif
+#  elif !defined(missing_arch_template)
+#    warning "openat2() syscall number is unknown for your architecture"
+#  endif
+
+/* may be an (invalid) negative number due to libseccomp, see PR 13319 */
+#  if defined __NR_openat2 && __NR_openat2 >= 0
+#    if defined systemd_NR_openat2
+assert_cc(__NR_openat2 == systemd_NR_openat2);
+#    endif
+#  else
+#    if defined __NR_openat2
+#      undef __NR_openat2
+#    endif
+#    if defined systemd_NR_openat2 && systemd_NR_openat2 >= 0
+#      define __NR_openat2 systemd_NR_openat2
+#    endif
+#  endif
+#endif
+
 #ifndef __IGNORE_pidfd_open
 #  if defined(__aarch64__)
 #    define systemd_NR_pidfd_open 434
@@ -627,6 +735,8 @@ assert_cc(__NR_open_tree == systemd_NR_open_tree);
 #    define systemd_NR_pidfd_open 434
 #  elif defined(__ia64__)
 #    define systemd_NR_pidfd_open 1458
+#  elif defined(__loongarch64)
+#    define systemd_NR_pidfd_open 434
 #  elif defined(__m68k__)
 #    define systemd_NR_pidfd_open 434
 #  elif defined(_MIPS_SIM)
@@ -639,10 +749,18 @@ assert_cc(__NR_open_tree == systemd_NR_open_tree);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_pidfd_open 434
 #  elif defined(__powerpc__)
 #    define systemd_NR_pidfd_open 434
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_pidfd_open 434
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_pidfd_open 434
+#    elif __riscv_xlen == 64
+#      define systemd_NR_pidfd_open 434
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_pidfd_open 434
 #  elif defined(__sparc__)
@@ -685,6 +803,8 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__ia64__)
 #    define systemd_NR_pidfd_send_signal 1448
+#  elif defined(__loongarch64)
+#    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__m68k__)
 #    define systemd_NR_pidfd_send_signal 424
 #  elif defined(_MIPS_SIM)
@@ -697,10 +817,18 @@ assert_cc(__NR_pidfd_open == systemd_NR_pidfd_open);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__powerpc__)
 #    define systemd_NR_pidfd_send_signal 424
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_pidfd_send_signal 424
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_pidfd_send_signal 424
+#    elif __riscv_xlen == 64
+#      define systemd_NR_pidfd_send_signal 424
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_pidfd_send_signal 424
 #  elif defined(__sparc__)
@@ -743,6 +871,8 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    define systemd_NR_pkey_mprotect 380
 #  elif defined(__ia64__)
 #    define systemd_NR_pkey_mprotect 1354
+#  elif defined(__loongarch64)
+#    define systemd_NR_pkey_mprotect 288
 #  elif defined(__m68k__)
 #    define systemd_NR_pkey_mprotect 381
 #  elif defined(_MIPS_SIM)
@@ -755,10 +885,18 @@ assert_cc(__NR_pidfd_send_signal == systemd_NR_pidfd_send_signal);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_pkey_mprotect 351
 #  elif defined(__powerpc__)
 #    define systemd_NR_pkey_mprotect 386
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_pkey_mprotect 288
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_pkey_mprotect 288
+#    elif __riscv_xlen == 64
+#      define systemd_NR_pkey_mprotect 288
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_pkey_mprotect 384
 #  elif defined(__sparc__)
@@ -801,6 +939,8 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    define systemd_NR_renameat2 353
 #  elif defined(__ia64__)
 #    define systemd_NR_renameat2 1338
+#  elif defined(__loongarch64)
+#    define systemd_NR_renameat2 276
 #  elif defined(__m68k__)
 #    define systemd_NR_renameat2 351
 #  elif defined(_MIPS_SIM)
@@ -813,10 +953,18 @@ assert_cc(__NR_pkey_mprotect == systemd_NR_pkey_mprotect);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_renameat2 337
 #  elif defined(__powerpc__)
 #    define systemd_NR_renameat2 357
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_renameat2 276
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_renameat2 276
+#    elif __riscv_xlen == 64
+#      define systemd_NR_renameat2 276
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_renameat2 347
 #  elif defined(__sparc__)
@@ -859,6 +1007,8 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    define systemd_NR_setns 346
 #  elif defined(__ia64__)
 #    define systemd_NR_setns 1330
+#  elif defined(__loongarch64)
+#    define systemd_NR_setns 268
 #  elif defined(__m68k__)
 #    define systemd_NR_setns 344
 #  elif defined(_MIPS_SIM)
@@ -871,10 +1021,18 @@ assert_cc(__NR_renameat2 == systemd_NR_renameat2);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_setns 328
 #  elif defined(__powerpc__)
 #    define systemd_NR_setns 350
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_setns 268
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_setns 268
+#    elif __riscv_xlen == 64
+#      define systemd_NR_setns 268
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_setns 339
 #  elif defined(__sparc__)
@@ -917,6 +1075,8 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    define systemd_NR_statx 383
 #  elif defined(__ia64__)
 #    define systemd_NR_statx 1350
+#  elif defined(__loongarch64)
+#    define systemd_NR_statx 291
 #  elif defined(__m68k__)
 #    define systemd_NR_statx 379
 #  elif defined(_MIPS_SIM)
@@ -929,10 +1089,18 @@ assert_cc(__NR_setns == systemd_NR_setns);
 #    else
 #      error "Unknown MIPS ABI"
 #    endif
+#  elif defined(__hppa__)
+#    define systemd_NR_statx 349
 #  elif defined(__powerpc__)
 #    define systemd_NR_statx 383
-#  elif defined(__riscv) && defined(__LP64__)
-#    define systemd_NR_statx 291
+#  elif defined(__riscv)
+#    if __riscv_xlen == 32
+#      define systemd_NR_statx 291
+#    elif __riscv_xlen == 64
+#      define systemd_NR_statx 291
+#    else
+#      error "Unknown RISC-V ABI"
+#    endif
 #  elif defined(__s390__)
 #    define systemd_NR_statx 379
 #  elif defined(__sparc__)

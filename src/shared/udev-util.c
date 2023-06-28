@@ -13,11 +13,14 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "id128-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strxcpyx.h"
@@ -26,7 +29,7 @@
 
 static const char* const resolve_name_timing_table[_RESOLVE_NAME_TIMING_MAX] = {
         [RESOLVE_NAME_NEVER] = "never",
-        [RESOLVE_NAME_LATE] = "late",
+        [RESOLVE_NAME_LATE]  = "late",
         [RESOLVE_NAME_EARLY] = "early",
 };
 
@@ -120,29 +123,6 @@ int udev_parse_config_full(
         return 0;
 }
 
-/* Note that if -ENOENT is returned, it will be logged at debug level rather than error,
- * because it's an expected, common occurrence that the caller will handle with a fallback */
-static int device_new_from_dev_path(const char *devlink, sd_device **ret_device) {
-        struct stat st;
-        int r;
-
-        assert(devlink);
-
-        if (stat(devlink, &st) < 0)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to stat() %s: %m", devlink);
-
-        if (!S_ISBLK(st.st_mode))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTBLK),
-                                       "%s does not point to a block device: %m", devlink);
-
-        r = sd_device_new_from_stat_rdev(ret_device, &st);
-        if (r < 0)
-                return log_error_errno(r, "Failed to initialize device from %s: %m", devlink);
-
-        return 0;
-}
-
 struct DeviceMonitorData {
         const char *sysname;
         const char *devlink;
@@ -156,11 +136,10 @@ static void device_monitor_data_free(struct DeviceMonitorData *d) {
 }
 
 static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device, void *userdata) {
-        struct DeviceMonitorData *data = userdata;
+        struct DeviceMonitorData *data = ASSERT_PTR(userdata);
         const char *sysname;
 
         assert(device);
-        assert(data);
         assert(data->sysname || data->devlink);
         assert(!data->device);
 
@@ -205,11 +184,10 @@ static int device_wait_for_initialization_internal(
                 sd_device *_device,
                 const char *devlink,
                 const char *subsystem,
-                usec_t deadline,
+                usec_t timeout_usec,
                 sd_device **ret) {
 
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timeout_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         /* Ensure that if !_device && devlink, device gets unrefd on errors since it will be new */
         _cleanup_(sd_device_unrefp) sd_device *device = sd_device_ref(_device);
@@ -222,9 +200,9 @@ static int device_wait_for_initialization_internal(
 
         /* Devlink might already exist, if it does get the device to use the sysname filtering */
         if (!device && devlink) {
-                r = device_new_from_dev_path(devlink, &device);
-                if (r < 0 && r != -ENOENT)
-                        return r;
+                r = sd_device_new_from_devname(&device, devlink);
+                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                        return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
 
         if (device) {
@@ -259,6 +237,15 @@ static int device_wait_for_initialization_internal(
                         return log_error_errno(r, "Failed to add %s subsystem match to monitor: %m", subsystem);
         }
 
+        _cleanup_free_ char *desc = NULL;
+        const char *sysname = NULL;
+        if (device)
+                (void) sd_device_get_sysname(device, &sysname);
+
+        desc = strjoin(sysname ?: subsystem, devlink ? ":" : ":initialization", devlink);
+        if (desc)
+                (void) sd_device_monitor_set_description(monitor, desc);
+
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event to device monitor: %m");
@@ -267,21 +254,20 @@ static int device_wait_for_initialization_internal(
         if (r < 0)
                 return log_error_errno(r, "Failed to start device monitor: %m");
 
-        if (deadline != USEC_INFINITY) {
-                r = sd_event_add_time(
-                                event, &timeout_source,
-                                CLOCK_MONOTONIC, deadline, 0,
+        if (timeout_usec != USEC_INFINITY) {
+                r = sd_event_add_time_relative(
+                                event, NULL,
+                                CLOCK_MONOTONIC, timeout_usec, 0,
                                 NULL, INT_TO_PTR(-ETIMEDOUT));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add timeout event source: %m");
         }
 
-        /* Check again, maybe things changed. Udev will re-read the db if the device wasn't initialized
-         * yet. */
+        /* Check again, maybe things changed. Udev will re-read the db if the device wasn't initialized yet. */
         if (!device && devlink) {
-                r = device_new_from_dev_path(devlink, &device);
-                if (r < 0 && r != -ENOENT)
-                        return r;
+                r = sd_device_new_from_devname(&device, devlink);
+                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+                        return log_error_errno(r, "Failed to create sd-device object from %s: %m", devlink);
         }
         if (device && sd_device_get_is_initialized(device) > 0) {
                 if (ret)
@@ -298,12 +284,12 @@ static int device_wait_for_initialization_internal(
         return 0;
 }
 
-int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t deadline, sd_device **ret) {
-        return device_wait_for_initialization_internal(device, NULL, subsystem, deadline, ret);
+int device_wait_for_initialization(sd_device *device, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
+        return device_wait_for_initialization_internal(device, NULL, subsystem, timeout_usec, ret);
 }
 
-int device_wait_for_devlink(const char *devlink, const char *subsystem, usec_t deadline, sd_device **ret) {
-        return device_wait_for_initialization_internal(NULL, devlink, subsystem, deadline, ret);
+int device_wait_for_devlink(const char *devlink, const char *subsystem, usec_t timeout_usec, sd_device **ret) {
+        return device_wait_for_initialization_internal(NULL, devlink, subsystem, timeout_usec, ret);
 }
 
 int device_is_renaming(sd_device *dev) {
@@ -336,6 +322,7 @@ bool device_for_action(sd_device *dev, sd_device_action_t a) {
 
 void log_device_uevent(sd_device *device, const char *str) {
         sd_device_action_t action = _SD_DEVICE_ACTION_INVALID;
+        sd_id128_t event_id = SD_ID128_NULL;
         uint64_t seqnum = 0;
 
         if (!DEBUG_LOGGING)
@@ -343,14 +330,16 @@ void log_device_uevent(sd_device *device, const char *str) {
 
         (void) sd_device_get_seqnum(device, &seqnum);
         (void) sd_device_get_action(device, &action);
-        log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s)",
+        (void) sd_device_get_trigger_uuid(device, &event_id);
+        log_device_debug(device, "%s%s(SEQNUM=%"PRIu64", ACTION=%s%s%s)",
                          strempty(str), isempty(str) ? "" : " ",
-                         seqnum, strna(device_action_to_string(action)));
+                         seqnum, strna(device_action_to_string(action)),
+                         sd_id128_is_null(event_id) ? "" : ", UUID=",
+                         sd_id128_is_null(event_id) ? "" : SD_ID128_TO_UUID_STRING(event_id));
 }
 
 int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         char *i, *j;
-        int r;
         bool is_escaped;
 
         /* value must be double quotated */
@@ -358,11 +347,10 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
         str += is_escaped;
         if (str[0] != '"')
                 return -EINVAL;
-        str++;
 
         if (!is_escaped) {
                 /* unescape double quotation '\"'->'"' */
-                for (i = j = str; *i != '"'; i++, j++) {
+                for (j = str, i = str + 1; *i != '"'; i++, j++) {
                         if (*i == '\0')
                                 return -EINVAL;
                         if (i[0] == '\\' && i[1] == '"')
@@ -370,11 +358,17 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                         *j = *i;
                 }
                 j[0] = '\0';
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                j[1] = '\0';
         } else {
                 _cleanup_free_ char *unescaped = NULL;
+                ssize_t l;
 
                 /* find the end position of value */
-                for (i = str; *i != '"'; i++) {
+                for (i = str + 1; *i != '"'; i++) {
                         if (i[0] == '\\')
                                 i++;
                         if (*i == '\0')
@@ -382,11 +376,17 @@ int udev_rule_parse_value(char *str, char **ret_value, char **ret_endpos) {
                 }
                 i[0] = '\0';
 
-                r = cunescape_length(str, i - str, 0, &unescaped);
-                if (r < 0)
-                        return r;
-                assert(r <= i - str);
-                memcpy(str, unescaped, r + 1);
+                l = cunescape_length(str + 1, i - (str + 1), 0, &unescaped);
+                if (l < 0)
+                        return l;
+
+                assert(l <= i - (str + 1));
+                memcpy(str, unescaped, l + 1);
+                /*
+                 * The return value must be terminated by two subsequent NULs
+                 * so it could be safely interpreted as nulstr.
+                 */
+                str[l + 1] = '\0';
         }
 
         *ret_value = str;
@@ -434,6 +434,22 @@ size_t udev_replace_whitespace(const char *str, char *to, size_t len) {
 
         to[j] = '\0';
         return j;
+}
+
+size_t udev_replace_ifname(char *str) {
+        size_t replaced = 0;
+
+        assert(str);
+
+        /* See ifname_valid_full(). */
+
+        for (char *p = str; *p != '\0'; p++)
+                if (!ifname_valid_char(*p)) {
+                        *p = '_';
+                        replaced++;
+                }
+
+        return replaced;
 }
 
 size_t udev_replace_chars(char *str, const char *allow) {
@@ -544,13 +560,26 @@ int udev_resolve_subsys_kernel(const char *string, char *result, size_t maxsize,
         return 0;
 }
 
+bool devpath_conflict(const char *a, const char *b) {
+        /* This returns true when two paths are equivalent, or one is a child of another. */
+
+        if (!a || !b)
+                return false;
+
+        for (; *a != '\0' && *b != '\0'; a++, b++)
+                if (*a != *b)
+                        return false;
+
+        return *a == '/' || *b == '/' || *a == *b;
+}
+
 int udev_queue_is_empty(void) {
         return access("/run/udev/queue", F_OK) < 0 ?
                 (errno == ENOENT ? true : -errno) : false;
 }
 
 int udev_queue_init(void) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
 
         fd = inotify_init1(IN_CLOEXEC);
         if (fd < 0)
@@ -560,4 +589,18 @@ int udev_queue_init(void) {
                 return -errno;
 
         return TAKE_FD(fd);
+}
+
+bool udev_available(void) {
+        static int cache = -1;
+
+        /* The service systemd-udevd is started only when /sys is read write.
+         * See systemd-udevd.service: ConditionPathIsReadWrite=/sys
+         * Also, our container interface (http://systemd.io/CONTAINER_INTERFACE/) states that /sys must
+         * be mounted in read-only mode in containers. */
+
+        if (cache >= 0)
+                return cache;
+
+        return (cache = (path_is_read_only_fs("/sys/") <= 0));
 }

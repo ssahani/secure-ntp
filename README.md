@@ -29,7 +29,7 @@ All complaints should go to Sven Eden, who is maintaining etimesyncd.
 Contributing
 ============
 
-nts-timesyncd was branched from systemd version 248. It implements
+nts-timesyncd was branched from systemd version 253. It implements
 Network Time Security for the Network Time Protocol.
 RFC: https://datatracker.ietf.org/doc/html/rfc8915 using GnuTls
 https://www.gnutls.org/
@@ -66,19 +66,20 @@ Dependencies
   * gcc, awk, sed, grep, m4, and similar tools
 
 To build in directory build/:
-    - `make`
-    or
-    - `meson build/ && ninja -C build`
+    - ```rm -rf build;meson setup build;make```
+    - ```sudo make install```
 
 Example configration
 ------------
 
 ```
 ❯ sudo useradd nts-timesync -G nts-timesync -M
-
 ❯ sudo chown nts-timesync:nts-timesync -R /etc/nts-timesync
+❯ sudo cat /etc/systemd/nts-timesyncd.conf
 
-❯ sudo cat /etc/nts-timesync/nts-timesyncd.conf
+```
+
+```
 
 [Time]
 NetworkTimeSecurityServer=time.cloudflare.com nts.sth1.ntp.se nts.netnod.se
@@ -89,3 +90,4 @@ NetworkTimeSecurityServer=time.cloudflare.com nts.sth1.ntp.se nts.netnod.se
 #PollIntervalMaxSec=2048
 
 ```
+``

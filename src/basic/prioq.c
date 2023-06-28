@@ -173,6 +173,16 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
         return 0;
 }
 
+int prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
+        int r;
+
+        r = prioq_ensure_allocated(q, compare_func);
+        if (r < 0)
+                return r;
+
+        return prioq_put(*q, data, idx);
+}
+
 static void remove_item(Prioq *q, struct prioq_item *i) {
         struct prioq_item *l;
 
@@ -243,7 +253,7 @@ int prioq_remove(Prioq *q, void *data, unsigned *idx) {
         return 1;
 }
 
-int prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
+void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         struct prioq_item *i;
         unsigned k;
 
@@ -251,12 +261,11 @@ int prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
 
         i = find_item(q, data, idx);
         if (!i)
-                return 0;
+                return;
 
         k = i - q->items;
         k = shuffle_down(q, k);
         shuffle_up(q, k);
-        return 1;
 }
 
 void *prioq_peek_by_index(Prioq *q, unsigned idx) {

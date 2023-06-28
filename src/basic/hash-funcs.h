@@ -78,10 +78,12 @@ void string_hash_func(const char *p, struct siphash *state);
 extern const struct hash_ops string_hash_ops;
 extern const struct hash_ops string_hash_ops_free;
 extern const struct hash_ops string_hash_ops_free_free;
+extern const struct hash_ops string_hash_ops_free_strv_free;
 
 void path_hash_func(const char *p, struct siphash *state);
 extern const struct hash_ops path_hash_ops;
 extern const struct hash_ops path_hash_ops_free;
+extern const struct hash_ops path_hash_ops_free_free;
 
 /* This will compare the passed pointers directly, and will not dereference them. This is hence not useful for strings
  * or suchlike. */
@@ -100,11 +102,10 @@ extern const struct hash_ops uint64_hash_ops;
 /* On some archs dev_t is 32bit, and on others 64bit. And sometimes it's 64bit on 32bit archs, and sometimes 32bit on
  * 64bit archs. Yuck! */
 #if SIZEOF_DEV_T != 8
-void devt_hash_func(const dev_t *p, struct siphash *state) _pure_;
-int devt_compare_func(const dev_t *a, const dev_t *b) _pure_;
-extern const struct hash_ops devt_hash_ops;
+void devt_hash_func(const dev_t *p, struct siphash *state);
 #else
 #define devt_hash_func uint64_hash_func
-#define devt_compare_func uint64_compare_func
-#define devt_hash_ops uint64_hash_ops
 #endif
+
+int devt_compare_func(const dev_t *a, const dev_t *b) _pure_;
+extern const struct hash_ops devt_hash_ops;

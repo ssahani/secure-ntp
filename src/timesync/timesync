@@ -1,0 +1,27 @@
+  /home/sus/tt/nts-timesync/src/timesync:
+  total used in directory 716 available 25.8 GiB
+  drwxr-xr-x  2 sus sus   4096 Nov 26 10:51 .
+  drwxr-xr-x 97 sus sus   4096 Nov 23 04:33 ..
+  -rw-r--r--  1 sus sus     26 Nov 19 05:16 80-systemd-timesync.list
+  -rw-r--r--  1 sus sus   2114 Nov 26 04:36 meson.build
+  -rw-r--r--  1 sus sus   1614 Nov 19 05:16 org.freedesktop.timesync1.conf
+  -rw-r--r--  1 sus sus    467 Nov 19 05:16 org.freedesktop.timesync1.service
+  -rw-r--r--  1 sus sus   1233 Nov 19 05:16 test-timesync.c
+  -rw-r--r--  1 sus sus   7503 Nov 19 05:16 timesyncd-bus.c
+  -rw-r--r--  1 sus sus    132 Nov 19 05:16 timesyncd-bus.h
+  -rw-r--r--  1 sus sus   6245 Nov 26 04:36 timesyncd.c
+  -rw-r--r--  1 sus sus   4035 Nov 19 05:16 timesyncd-conf.c
+  -rw-r--r--  1 sus sus    455 Nov 19 05:16 timesyncd-conf.h
+  -rw-r--r--  1 sus sus    603 Nov 19 05:16 timesyncd.conf.in
+  -rw-r--r--  1 sus sus   1142 Nov 26 04:36 timesyncd-gperf.gperf
+  -rw-r--r--  1 sus sus  46919 Nov 26 10:18 timesyncd-manager.c
+  -rw-r--r--  1 sus sus   3733 Nov 26 04:36 timesyncd-manager.h
+  -rw-r--r--  1 sus sus  10920 Nov 26 10:50 timesyncd-ntp-extension.c
+  -rw-r--r--  1 sus sus   1253 Nov 26 05:29 timesyncd-ntp-extension.h
+  -rw-r--r--  1 sus sus   1868 Nov 26 10:51 timesyncd-ntp-message.h
+  -rw-r--r--  1 sus sus   5837 Nov 26 05:34 timesyncd-nts-client.c
+  -rw-r--r--  1 sus sus    662 Nov 26 04:36 timesyncd-nts-client.h
+  -rw-r--r--  1 sus sus  10304 Nov 26 05:21 timesyncd-nts-protocol.c
+  -rw-r--r--  1 sus sus   2431 Nov 26 04:36 timesyncd-nts-protocol.h
+  -rw-r--r--  1 sus sus   4154 Nov 26 04:36 timesyncd-server.c
+  -rw-r--r--  1 sus sus   1239 Nov 26 04:36 timesyncd-server.h

@@ -757,4 +757,74 @@ global:
         sd_device_monitor_filter_add_match_sysattr;
         sd_device_monitor_filter_add_match_parent;
         sd_device_get_usec_initialized;
+        sd_device_trigger_with_uuid;
+        sd_device_get_trigger_uuid;
+        sd_device_new_from_ifname;
+        sd_device_new_from_ifindex;
 } LIBSYSTEMD_248;
+
+LIBSYSTEMD_250 {
+global:
+        sd_device_get_diskseq;
+        sd_event_add_inotify_fd;
+        sd_event_source_set_ratelimit_expire_callback;
+} LIBSYSTEMD_249;
+
+LIBSYSTEMD_251 {
+global:
+        sd_id128_to_uuid_string;
+        sd_device_new_from_devname;
+        sd_device_new_from_path;
+        sd_device_open;
+        sd_device_enumerator_add_nomatch_sysname;
+} LIBSYSTEMD_250;
+
+LIBSYSTEMD_252 {
+global:
+        sd_bus_message_read_strv_extend;
+        sd_bus_error_setfv;
+
+        sd_device_new_child;
+        sd_device_get_child_first;
+        sd_device_get_child_next;
+        sd_device_monitor_set_description;
+        sd_device_monitor_get_description;
+
+        sd_event_set_signal_exit;
+
+        sd_id128_string_equal;
+
+        sd_hwdb_new_from_path;
+} LIBSYSTEMD_251;
+
+LIBSYSTEMD_253 {
+global:
+        sd_bus_emit_signal_to;
+        sd_bus_emit_signal_tov;
+        sd_bus_message_new_signal_to;
+        sd_pidfd_get_cgroup;
+        sd_pidfd_get_machine_name;
+        sd_pidfd_get_owner_uid;
+        sd_pidfd_get_session;
+        sd_pidfd_get_slice;
+        sd_pidfd_get_unit;
+        sd_pidfd_get_user_slice;
+        sd_pidfd_get_user_unit;
+} LIBSYSTEMD_252;
+
+LIBSYSTEMD_254 {
+global:
+        sd_journal_get_seqnum;
+        sd_session_get_username;
+        sd_session_get_start_time;
+        sd_uid_get_login_time;
+        sd_pid_notifyf_with_fds;
+        sd_event_add_memory_pressure;
+        sd_event_source_set_memory_pressure_type;
+        sd_event_source_set_memory_pressure_period;
+        sd_event_trim_memory;
+        sd_pid_notify_barrier;
+        sd_event_source_leave_ratelimit;
+        sd_journal_step_one;
+        sd_session_get_leader;
+} LIBSYSTEMD_253;

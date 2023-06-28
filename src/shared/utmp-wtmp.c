@@ -12,6 +12,7 @@
 #include <utmpx.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "io-util.h"
@@ -23,6 +24,44 @@
 #include "time-util.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
+
+int utmp_get_runlevel(int *runlevel, int *previous) {
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
+        struct utmpx *found, lookup = { .ut_type = RUN_LVL };
+        const char *e;
+
+        assert(runlevel);
+
+        /* If these values are set in the environment this takes
+         * precedence. Presumably, sysvinit does this to work around a
+         * race condition that would otherwise exist where we'd always
+         * go to disk and hence might read runlevel data that might be
+         * very new and not apply to the current script being executed. */
+
+        e = getenv("RUNLEVEL");
+        if (!isempty(e)) {
+                *runlevel = e[0];
+                if (previous)
+                        *previous = 0;
+
+                return 0;
+        }
+
+        if (utmpxname(_PATH_UTMPX) < 0)
+                return -errno;
+
+        utmpx = utxent_start();
+
+        found = getutxid(&lookup);
+        if (!found)
+                return -errno;
+
+        *runlevel = found->ut_pid & 0xFF;
+        if (previous)
+                *previous = (found->ut_pid >> 8) & 0xFF;
+
+        return 0;
+}
 
 static void init_timestamp(struct utmpx *store, usec_t t) {
         assert(store);
@@ -49,7 +88,7 @@ static void init_entry(struct utmpx *store, usec_t t) {
 }
 
 static int write_entry_utmp(const struct utmpx *store) {
-        _cleanup_(utxent_cleanup) bool utmpx = false;
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
 
         assert(store);
 
@@ -126,7 +165,6 @@ int utmp_put_reboot(usec_t t) {
         return write_entry_both(&store);
 }
 
-#if 0 /// UNNEEDED by elogind
 static void copy_suffix(char *buf, size_t buf_size, const char *src) {
         size_t l;
 
@@ -178,13 +216,14 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 }
 
 int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         struct utmpx lookup = {
                 .ut_type = INIT_PROCESS /* looks for DEAD_PROCESS, LOGIN_PROCESS, USER_PROCESS, too */
         }, store, store_wtmp, *found;
 
         assert(id);
 
-        setutxent();
+        utmpx = utxent_start();
 
         /* Copy the whole string if it fits, or just the suffix without the terminating NUL. */
         copy_suffix(store.ut_id, sizeof(store.ut_id), id);
@@ -241,12 +280,11 @@ int utmp_put_runlevel(int runlevel, int previous) {
 
         return write_entry_both(&store);
 }
-#endif // 0
 
 #define TIMEOUT_USEC (50 * USEC_PER_MSEC)
 
 static int write_to_terminal(const char *tty, const char *message) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -EBADF;
         const char *p;
         size_t left;
         usec_t end;
@@ -255,13 +293,15 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(message);
 
         fd = open(tty, O_WRONLY|O_NONBLOCK|O_NOCTTY|O_CLOEXEC);
-        if (fd < 0 || !isatty(fd))
+        if (fd < 0)
                 return -errno;
+        if (!isatty(fd))
+                return -ENOTTY;
 
         p = message;
         left = strlen(message);
 
-        end = now(CLOCK_MONOTONIC) + TIMEOUT_USEC;
+        end = usec_add(now(CLOCK_MONOTONIC), TIMEOUT_USEC);
 
         while (left > 0) {
                 ssize_t n;
@@ -269,19 +309,21 @@ static int write_to_terminal(const char *tty, const char *message) {
                 int k;
 
                 t = now(CLOCK_MONOTONIC);
-
                 if (t >= end)
                         return -ETIME;
 
                 k = fd_wait_for_event(fd, POLLOUT, end - t);
-                if (k < 0)
+                if (k < 0) {
+                        if (ERRNO_IS_TRANSIENT(k))
+                                continue;
                         return k;
+                }
                 if (k == 0)
                         return -ETIME;
 
                 n = write(fd, p, left);
                 if (n < 0) {
-                        if (errno == EAGAIN)
+                        if (ERRNO_IS_TRANSIENT(errno))
                                 continue;
 
                         return -errno;
@@ -300,11 +342,11 @@ int utmp_wall(
         const char *message,
         const char *username,
         const char *origin_tty,
-        bool (*match_tty)(const char *tty, void *userdata),
+        bool (*match_tty)(const char *tty, bool is_local, void *userdata),
         void *userdata) {
 
+        _unused_ _cleanup_(utxent_cleanup) bool utmpx = false;
         _cleanup_free_ char *text = NULL, *hn = NULL, *un = NULL, *stdin_tty = NULL;
-        char date[FORMAT_TIMESTAMP_MAX];
         struct utmpx *u;
         int r;
 
@@ -323,16 +365,16 @@ int utmp_wall(
         }
 
         if (asprintf(&text,
-                     "\a\r\n"
+                     "\r\n"
                      "Broadcast message from %s@%s%s%s (%s):\r\n\r\n"
                      "%s\r\n\r\n",
                      un ?: username, hn,
                      origin_tty ? " on " : "", strempty(origin_tty),
-                     format_timestamp(date, sizeof(date), now(CLOCK_REALTIME)),
+                     FORMAT_TIMESTAMP(now(CLOCK_REALTIME)),
                      message) < 0)
                 return -ENOMEM;
 
-        setutxent();
+        utmpx = utxent_start();
 
         r = 0;
 
@@ -344,17 +386,20 @@ int utmp_wall(
                 if (u->ut_type != USER_PROCESS || u->ut_user[0] == 0)
                         continue;
 
-                /* this access is fine, because STRLEN("/dev/") << 32 (UT_LINESIZE) */
+                /* This access is fine, because strlen("/dev/") < 32 (UT_LINESIZE) */
                 if (path_startswith(u->ut_line, "/dev/"))
                         path = u->ut_line;
                 else {
                         if (asprintf(&buf, "/dev/%.*s", (int) sizeof(u->ut_line), u->ut_line) < 0)
                                 return -ENOMEM;
-
                         path = buf;
                 }
 
-                if (!match_tty || match_tty(path, userdata)) {
+                /* It seems that the address field is always set for remote logins.
+                 * For local logins and other local entries, we get [0,0,0,0]. */
+                bool is_local = memeqzero(u->ut_addr_v6, sizeof(u->ut_addr_v6));
+
+                if (!match_tty || match_tty(path, is_local, userdata)) {
                         q = write_to_terminal(path, text);
                         if (q < 0)
                                 r = q;

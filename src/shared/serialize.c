@@ -6,6 +6,7 @@
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
+#include "memfd-util.h"
 #include "missing_mman.h"
 #include "missing_syscall.h"
 #include "parse-util.h"
@@ -117,7 +118,6 @@ int serialize_dual_timestamp(FILE *f, const char *name, const dual_timestamp *t)
 
 int serialize_strv(FILE *f, const char *key, char **l) {
         int ret = 0, r;
-        char **i;
 
         /* Returns the first error, or positive if anything was serialized, 0 otherwise. */
 
@@ -129,6 +129,20 @@ int serialize_strv(FILE *f, const char *key, char **l) {
         }
 
         return ret;
+}
+
+int deserialize_strv(char ***l, const char *value) {
+        ssize_t unescaped_len;
+        char *unescaped;
+
+        assert(l);
+        assert(value);
+
+        unescaped_len = cunescape(value, 0, &unescaped);
+        if (unescaped_len < 0)
+                return unescaped_len;
+
+        return strv_consume(l, unescaped);
 }
 
 int deserialize_usec(const char *value, usec_t *ret) {
@@ -143,10 +157,62 @@ int deserialize_usec(const char *value, usec_t *ret) {
         return 0;
 }
 
+int deserialize_dual_timestamp(const char *value, dual_timestamp *t) {
+        uint64_t a, b;
+        int r, pos;
+
+        assert(value);
+        assert(t);
+
+        pos = strspn(value, WHITESPACE);
+        if (value[pos] == '-')
+                return -EINVAL;
+        pos += strspn(value + pos, DIGITS);
+        pos += strspn(value + pos, WHITESPACE);
+        if (value[pos] == '-')
+                return -EINVAL;
+
+        r = sscanf(value, "%" PRIu64 "%" PRIu64 "%n", &a, &b, &pos);
+        if (r != 2)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse dual timestamp value \"%s\".",
+                                       value);
+
+        if (value[pos] != '\0')
+                /* trailing garbage */
+                return -EINVAL;
+
+        t->realtime = a;
+        t->monotonic = b;
+
+        return 0;
+}
+
+int deserialize_environment(const char *value, char ***list) {
+        _cleanup_free_ char *unescaped = NULL;
+        ssize_t l;
+        int r;
+
+        assert(value);
+        assert(list);
+
+        /* Changes the *environment strv inline. */
+
+        l = cunescape(value, 0, &unescaped);
+        if (l < 0)
+                return log_error_errno(l, "Failed to unescape: %m");
+
+        r = strv_env_replace_consume(list, TAKE_PTR(unescaped));
+        if (r < 0)
+                return log_error_errno(r, "Failed to append environment variable: %m");
+
+        return 0;
+}
+
 int open_serialization_fd(const char *ident) {
         int fd;
 
-        fd = memfd_create(ident, MFD_CLOEXEC);
+        fd = memfd_create_wrapper(ident, MFD_CLOEXEC | MFD_NOEXEC_SEAL);
         if (fd < 0) {
                 const char *path;
 

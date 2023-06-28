@@ -3,5 +3,9 @@
 
 #include <stdbool.h>
 
+#include "bus-util.h"
+
 int polkit_agent_open(void);
 void polkit_agent_close(void);
+
+int polkit_agent_open_if_enabled(BusTransport transport, bool ask_password);

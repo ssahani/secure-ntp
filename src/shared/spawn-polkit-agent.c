@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -14,7 +15,6 @@
 #include "spawn-polkit-agent.h"
 #include "stdio-util.h"
 #include "time-util.h"
-#include "util.h"
 
 #if ENABLE_POLKIT
 static pid_t agent_pid = 0;
@@ -55,7 +55,7 @@ int polkit_agent_open(void) {
                 log_error_errno(r, "Failed to fork TTY ask password agent: %m");
         else
                 /* Wait until the agent closes the fd */
-                fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
+                (void) fd_wait_for_event(pipe_fd[0], POLLHUP, USEC_INFINITY);
 
         safe_close(pipe_fd[0]);
 
@@ -68,9 +68,7 @@ void polkit_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        (void) kill_and_sigcont(agent_pid, SIGTERM);
-        (void) wait_for_terminate(agent_pid, NULL);
-        agent_pid = 0;
+        sigterm_wait(TAKE_PID(agent_pid));
 }
 
 #else
@@ -83,3 +81,16 @@ void polkit_agent_close(void) {
 }
 
 #endif
+
+int polkit_agent_open_if_enabled(BusTransport transport, bool ask_password) {
+
+        /* Open the polkit agent as a child process if necessary */
+
+        if (transport != BUS_TRANSPORT_LOCAL)
+                return 0;
+
+        if (!ask_password)
+                return 0;
+
+        return polkit_agent_open();
+}

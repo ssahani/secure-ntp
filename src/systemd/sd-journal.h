@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -93,12 +93,14 @@ void sd_journal_close(sd_journal *j);
 
 int sd_journal_previous(sd_journal *j);
 int sd_journal_next(sd_journal *j);
+int sd_journal_step_one(sd_journal *j, int advanced);
 
 int sd_journal_previous_skip(sd_journal *j, uint64_t skip);
 int sd_journal_next_skip(sd_journal *j, uint64_t skip);
 
 int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret);
 int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id);
+int sd_journal_get_seqnum(sd_journal *j, uint64_t *ret_seqnum, sd_id128_t *ret_seqnum_id);
 
 int sd_journal_set_data_threshold(sd_journal *j, size_t sz);
 int sd_journal_get_data_threshold(sd_journal *j, size_t *sz);

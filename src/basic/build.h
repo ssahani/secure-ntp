@@ -1,13 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1+ */
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
 #include "version.h"
 
-#if HAVE_GNUTLS
-#define _GNUTLS_FEATURE_ "+GNUTLS"
-#else
-#define _GNUTLS_FEATURE_ "-GNUTLS"
-#endif
+extern const char* const systemd_features;
 
-#define SYSTEMD_FEATURES                                                \
-        _GNUTLS_FEATURE_
+int version(void);

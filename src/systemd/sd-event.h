@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -68,6 +68,8 @@ enum {
         SD_EVENT_PRIORITY_IDLE = 100
 };
 
+#define SD_EVENT_SIGNAL_PROCMASK (1 << 30)
+
 typedef int (*sd_event_handler_t)(sd_event_source *s, void *userdata);
 typedef int (*sd_event_io_handler_t)(sd_event_source *s, int fd, uint32_t revents, void *userdata);
 typedef int (*sd_event_time_handler_t)(sd_event_source *s, uint64_t usec, void *userdata);
@@ -93,9 +95,11 @@ int sd_event_add_signal(sd_event *e, sd_event_source **s, int sig, sd_event_sign
 int sd_event_add_child(sd_event *e, sd_event_source **s, pid_t pid, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_child_pidfd(sd_event *e, sd_event_source **s, int pidfd, int options, sd_event_child_handler_t callback, void *userdata);
 int sd_event_add_inotify(sd_event *e, sd_event_source **s, const char *path, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
+int sd_event_add_inotify_fd(sd_event *e, sd_event_source **s, int fd, uint32_t mask, sd_event_inotify_handler_t callback, void *userdata);
 int sd_event_add_defer(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_post(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 int sd_event_add_exit(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
+int sd_event_add_memory_pressure(sd_event *e, sd_event_source **s, sd_event_handler_t callback, void *userdata);
 
 int sd_event_prepare(sd_event *e);
 int sd_event_wait(sd_event *e, uint64_t usec);
@@ -113,6 +117,7 @@ int sd_event_get_exit_code(sd_event *e, int *code);
 int sd_event_set_watchdog(sd_event *e, int b);
 int sd_event_get_watchdog(sd_event *e);
 int sd_event_get_iteration(sd_event *e, uint64_t *ret);
+int sd_event_set_signal_exit(sd_event *e, int b);
 
 sd_event_source* sd_event_source_ref(sd_event_source *s);
 sd_event_source* sd_event_source_unref(sd_event_source *s);
@@ -156,6 +161,8 @@ int sd_event_source_send_child_signal(sd_event_source *s, int sig, const siginfo
 int sd_event_source_send_child_signal(sd_event_source *s, int sig, const void *si, unsigned flags);
 #endif
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
+int sd_event_source_set_memory_pressure_type(sd_event_source *e, const char *ty);
+int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
 int sd_event_source_get_floating(sd_event_source *s);
@@ -165,6 +172,10 @@ int sd_event_source_set_exit_on_failure(sd_event_source *s, int b);
 int sd_event_source_set_ratelimit(sd_event_source *s, uint64_t interval_usec, unsigned burst);
 int sd_event_source_get_ratelimit(sd_event_source *s, uint64_t *ret_interval_usec, unsigned *ret_burst);
 int sd_event_source_is_ratelimited(sd_event_source *s);
+int sd_event_source_set_ratelimit_expire_callback(sd_event_source *s, sd_event_handler_t callback);
+int sd_event_source_leave_ratelimit(sd_event_source *s);
+
+int sd_event_trim_memory(void);
 
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);

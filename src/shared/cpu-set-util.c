@@ -18,18 +18,17 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "util.h"
 
 char* cpu_set_to_string(const CPUSet *a) {
         _cleanup_free_ char *str = NULL;
-        size_t allocated = 0, len = 0;
+        size_t len = 0;
         int i, r;
 
         for (i = 0; (size_t) i < a->allocated * 8; i++) {
                 if (!CPU_ISSET_S(i, a->allocated, a->set))
                         continue;
 
-                if (!GREEDY_REALLOC(str, allocated, len + 1 + DECIMAL_STR_MAX(int)))
+                if (!GREEDY_REALLOC(str, len + 1 + DECIMAL_STR_MAX(int)))
                         return NULL;
 
                 r = sprintf(str + len, len > 0 ? " %d" : "%d", i);
@@ -43,8 +42,8 @@ char* cpu_set_to_string(const CPUSet *a) {
 char *cpu_set_to_range_string(const CPUSet *set) {
         unsigned range_start = 0, range_end;
         _cleanup_free_ char *str = NULL;
-        size_t allocated = 0, len = 0;
         bool in_range = false;
+        size_t len = 0;
         int r;
 
         for (unsigned i = 0; i < set->allocated * 8; i++)
@@ -58,25 +57,25 @@ char *cpu_set_to_range_string(const CPUSet *set) {
                 } else if (in_range) {
                         in_range = false;
 
-                        if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
+                        if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(unsigned)))
                                 return NULL;
 
                         if (range_end > range_start)
-                                r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                                r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
                         else
-                                r = sprintf(str + len, len > 0 ? " %d" : "%d", range_start);
+                                r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
                         assert_se(r > 0);
                         len += r;
                 }
 
         if (in_range) {
-                if (!GREEDY_REALLOC(str, allocated, len + 2 + 2 * DECIMAL_STR_MAX(int)))
+                if (!GREEDY_REALLOC(str, len + 2 + 2 * DECIMAL_STR_MAX(int)))
                         return NULL;
 
                 if (range_end > range_start)
-                        r = sprintf(str + len, len > 0 ? " %d-%d" : "%d-%d", range_start, range_end);
+                        r = sprintf(str + len, len > 0 ? " %u-%u" : "%u-%u", range_start, range_end);
                 else
-                        r = sprintf(str + len, len > 0 ? " %d" : "%d", range_start);
+                        r = sprintf(str + len, len > 0 ? " %u" : "%u", range_start);
                 assert_se(r > 0);
         }
 
@@ -144,9 +143,9 @@ int parse_cpu_set_full(
                 const char *lvalue) {
 
         _cleanup_(cpu_set_reset) CPUSet c = {};
-        const char *p = rvalue;
+        const char *p = ASSERT_PTR(rvalue);
 
-        assert(p);
+        assert(cpu_set);
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -184,9 +183,7 @@ int parse_cpu_set_full(
                 }
         }
 
-        /* On success, transfer ownership to the output variable */
-        *cpu_set = c;
-        c = (CPUSet) {};
+        *cpu_set = TAKE_STRUCT(c);
 
         return 0;
 }
@@ -203,6 +200,8 @@ int parse_cpu_set_extend(
         _cleanup_(cpu_set_reset) CPUSet cpuset = {};
         int r;
 
+        assert(old);
+
         r = parse_cpu_set_full(rvalue, &cpuset, true, unit, filename, line, lvalue);
         if (r < 0)
                 return r;
@@ -214,8 +213,7 @@ int parse_cpu_set_extend(
         }
 
         if (!old->set) {
-                *old = cpuset;
-                cpuset = (CPUSet) {};
+                *old = TAKE_STRUCT(cpuset);
                 return 1;
         }
 
@@ -289,7 +287,6 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
                                 return r;
                 }
 
-        *set = s;
-        s = (CPUSet) {};
+        *set = TAKE_STRUCT(s);
         return 0;
 }

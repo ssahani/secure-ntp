@@ -9,21 +9,30 @@
 
 #include "alloc-util.h"
 #include "macro.h"
+#include "memory-util-fundamental.h"
 
 size_t page_size(void) _pure_;
 #define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
 #define PAGE_ALIGN_DOWN(l) ((l) & ~(page_size() - 1))
 #define PAGE_OFFSET(l) ((l) & (page_size() - 1))
 
-/* Normal memcpy requires src to be nonnull. We do nothing if n is 0. */
-static inline void memcpy_safe(void *dst, const void *src, size_t n) {
+/* Normal memcpy() requires src to be nonnull. We do nothing if n is 0. */
+static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
         if (n == 0)
-                return;
+                return dst;
         assert(src);
-        memcpy(dst, src, n);
+        return memcpy(dst, src, n);
 }
 
-/* Normal memcmp requires s1 and s2 to be nonnull. We do nothing if n is 0. */
+/* Normal mempcpy() requires src to be nonnull. We do nothing if n is 0. */
+static inline void *mempcpy_safe(void *dst, const void *src, size_t n) {
+        if (n == 0)
+                return dst;
+        assert(src);
+        return mempcpy(dst, src, n);
+}
+
+/* Normal memcmp() requires s1 and s2 to be nonnull. We do nothing if n is 0. */
 static inline int memcmp_safe(const void *s1, const void *s2, size_t n) {
         if (n == 0)
                 return 0;
@@ -47,7 +56,9 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
 
 #define zero(x) (memzero(&(x), sizeof(x)))
 
-bool memeqzero(const void *data, size_t length);
+bool memeqbyte(uint8_t byte, const void *data, size_t length);
+
+#define memeqzero(data, length) memeqbyte(0x00, data, length)
 
 #define eqzero(x) memeqzero(x, sizeof(x))
 
@@ -71,16 +82,15 @@ static inline void *memmem_safe(const void *haystack, size_t haystacklen, const 
         return memmem(haystack, haystacklen, needle, needlelen);
 }
 
-#if HAVE_EXPLICIT_BZERO
-static inline void* explicit_bzero_safe(void *p, size_t l) {
-        if (l > 0)
-                explicit_bzero(p, l);
+static inline void *mempmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
+        const uint8_t *p;
 
-        return p;
+        p = memmem_safe(haystack, haystacklen, needle, needlelen);
+        if (!p)
+                return NULL;
+
+        return (uint8_t*) p + needlelen;
 }
-#else
-void *explicit_bzero_safe(void *p, size_t l);
-#endif
 
 static inline void* erase_and_free(void *p) {
         size_t l;
@@ -88,7 +98,7 @@ static inline void* erase_and_free(void *p) {
         if (!p)
                 return NULL;
 
-        l = malloc_usable_size(p);
+        l = MALLOC_SIZEOF_SAFE(p);
         explicit_bzero_safe(p, l);
         return mfree(p);
 }
@@ -102,3 +112,36 @@ static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
 
+/* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
+typedef struct ArrayCleanup {
+        void **parray;
+        size_t *pn;
+        free_array_func_t pfunc;
+} ArrayCleanup;
+
+static inline void array_cleanup(const ArrayCleanup *c) {
+        assert(c);
+
+        assert(!c->parray == !c->pn);
+
+        if (!c->parray)
+                return;
+
+        if (*c->parray) {
+                assert(c->pfunc);
+                c->pfunc(*c->parray, *c->pn);
+                *c->parray = NULL;
+        }
+
+        *c->pn = 0;
+}
+
+#define CLEANUP_ARRAY(array, n, func)                                   \
+        _cleanup_(array_cleanup) _unused_ const ArrayCleanup CONCATENATE(_cleanup_array_, UNIQ) = { \
+                .parray = (void**) &(array),                            \
+                .pn = &(n),                                             \
+                .pfunc = (free_array_func_t) ({                         \
+                                void (*_f)(typeof(array[0]) *a, size_t b) = func; \
+                                _f;                                     \
+                        }),                                             \
+        }

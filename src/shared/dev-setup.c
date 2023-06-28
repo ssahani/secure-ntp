@@ -6,8 +6,9 @@
 
 #include "alloc-util.h"
 #include "dev-setup.h"
-#include "label.h"
+#include "label-util.h"
 #include "log.h"
+#include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "umask-util.h"
@@ -21,7 +22,6 @@ int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
                 "/proc/self/fd/1\0"  "/dev/stdout\0"
                 "/proc/self/fd/2\0"  "/dev/stderr\0";
 
-        const char *j, *k;
         int r;
 
         NULSTR_FOREACH_PAIR(j, k, symlinks) {
@@ -81,13 +81,12 @@ int make_inaccessible_nodes(
                 { "inaccessible/blk",  S_IFBLK  | 0000 },
         };
 
-        _cleanup_umask_ mode_t u;
         int r;
 
         if (!parent_dir)
                 parent_dir = "/run/systemd";
 
-        u = umask(0000);
+        BLOCK_WITH_UMASK(0000);
 
         /* Set up inaccessible (and empty) file nodes of all types. This are used to as mount sources for over-mounting
          * ("masking") file nodes that shall become inaccessible and empty for specific containers or services. We try

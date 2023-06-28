@@ -1,251 +1,107 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-basic_sources = files('''
-        alloc-util.c
-        alloc-util.h
-        architecture.c
-        architecture.h
-        async.c
-        async.h
-        audit-util.c
-        audit-util.h
-        build.c
-        build.h
-        bus-label.c
-        bus-label.h
-        cap-from-name.h
-        cap-to-name.h
-        cap-list.c
-        cap-list.h
-        capability-util.h
-        capability-util.c
-        cgroup-util.c
-        cgroup-util.h
-        chattr-util.c
-        chattr-util.h
-        conf-files.c
-        conf-files.h
-        copy.c
-        copy.h
-        creds-util.c
-        creds-util.h
-        def.h
-        device-nodes.c
-        device-nodes.h
-        dirent-util.c
-        dirent-util.h
-        dns-def.h
-        env-file.c
-        env-file.h
-        env-util.c
-        env-util.h
-        errno-list.c
-        errno-list.h
-        errno-util.h
-        escape.c
-        escape.h
-        ether-addr-util.c
-        ether-addr-util.h
-        extract-word.c
-        extract-word.h
-        fd-util.c
-        fd-util.h
-        fileio.c
-        fileio.h
-        format-util.c
-        format-util.h
-        fs-util.c
-        fs-util.h
-        glob-util.c
-        glob-util.h
-        gunicode.c
-        gunicode.h
-        hash-funcs.c
-        hash-funcs.h
-        hashmap.c
-        hashmap.h
-        hexdecoct.c
-        hexdecoct.h
-        hostname-util.c
-        hostname-util.h
-        in-addr-util.c
-        in-addr-util.h
-        io-util.c
-        io-util.h
-        ioprio.h
-        khash.c
-        khash.h
-        label.c
-        label.h
-        linux/btrfs.h
-        linux/btrfs_tree.h
-        linux/can/netlink.h
-        linux/can/vxcan.h
-        linux/fib_rules.h
-        linux/fou.h
-        linux/hdlc/ioctl.h
-        linux/if.h
-        linux/if_addr.h
-        linux/if_arp.h
-        linux/if_bonding.h
-        linux/if_bridge.h
-        linux/if_ether.h
-        linux/if_link.h
-        linux/if_macsec.h
-        linux/if_tun.h
-        linux/if_tunnel.h
-        linux/in.h
-        linux/in6.h
-        linux/ipv6_route.h
-        linux/l2tp.h
-        linux/libc-compat.h
-        linux/loadavg.h
-        linux/netdevice.h
-        linux/netfilter/nf_tables.h
-        linux/netfilter/nfnetlink.h
-        linux/netlink.h
-        linux/nexthop.h
-        linux/nl80211.h
-        linux/pkt_sched.h
-        linux/rtnetlink.h
-        linux/wireguard.h
-        list.h
-        locale-util.c
-        locale-util.h
-        log.c
-        log.h
-        login-util.c
-        login-util.h
-        macro.h
-        memfd-util.c
-        memfd-util.h
-        memory-util.c
-        memory-util.h
-        mempool.c
-        mempool.h
-        missing_audit.h
-        missing_capability.h
-        missing_drm.h
-        missing_fcntl.h
-        missing_fs.h
-        missing_input.h
-        missing_keyctl.h
-        missing_magic.h
-        missing_mman.h
-        missing_network.h
-        missing_prctl.h
-        missing_random.h
-        missing_resource.h
-        missing_sched.h
-        missing_securebits.h
-        missing_socket.h
-        missing_stat.h
-        missing_stdlib.h
-        missing_syscall.h
-        missing_timerfd.h
-        missing_type.h
-        mkdir-label.c
-        mkdir.c
-        mkdir.h
-        mountpoint-util.c
-        mountpoint-util.h
-        namespace-util.c
-        namespace-util.h
-        nss-util.h
-        nulstr-util.c
-        nulstr-util.h
-        ordered-set.c
-        ordered-set.h
-        os-util.c
-        os-util.h
-        parse-util.c
-        parse-util.h
-        path-util.c
-        path-util.h
-        percent-util.c
-        percent-util.h
-        spawn-polkit-agent.c
-        spawn-polkit-agent.h
-        prioq.c
-        prioq.h
-        proc-cmdline.c
-        proc-cmdline.h
-        process-util.c
-        process-util.h
-        procfs-util.c
-        procfs-util.h
-        pthread-util.h
-        random-util.c
-        random-util.h
-        ratelimit.c
-        ratelimit.h
-        raw-clone.h
-        raw-reboot.h
-        recovery-key.c
-        recovery-key.h
-        replace-var.c
-        replace-var.h
-        rlimit-util.c
-        rlimit-util.h
-        selinux-util.c
-        selinux-util.h
-        set.h
-        sigbus.c
-        sigbus.h
-        signal-util.c
-        signal-util.h
-        siphash24.c
-        siphash24.h
-        smack-util.c
-        smack-util.h
-        socket-label.c
-        socket-util.c
-        socket-util.h
-        sort-util.c
-        sort-util.h
-        sparse-endian.h
-        special.h
-        stat-util.c
-        stat-util.h
-        static-destruct.h
-        stdio-util.h
-        strbuf.c
-        strbuf.h
-        string-table.c
-        string-table.h
-        string-util.c
-        string-util.h
-        strv.c
-        strv.h
-        strxcpyx.c
-        strxcpyx.h
-        sysctl-util.c
-        sysctl-util.h
-        syslog-util.c
-        syslog-util.h
-        terminal-util.c
-        terminal-util.h
-        time-util.c
-        time-util.h
-        tmpfile-util.c
-        tmpfile-util.h
-        umask-util.h
-        unit-def.c
-        unit-def.h
-        unit-name.c
-        unit-name.h
-        unaligned.h
-        user-util.c
-        user-util.h
-        utf8.c
-        utf8.h
-        util.c
-        util.h
-        virt.c
-        virt.h
-        xattr-util.c
-        xattr-util.h
-'''.split())
+basic_sources = files(
+        'MurmurHash2.c',
+        'af-list.c',
+        'alloc-util.c',
+        'architecture.c',
+        'argv-util.c',
+        'arphrd-util.c',
+        'async.c',
+        'audit-util.c',
+        'build.c',
+        'bus-label.c',
+        'cap-list.c',
+        'capability-util.c',
+        'cgroup-util.c',
+        'chase.c',
+        'chattr-util.c',
+        'conf-files.c',
+        'devnum-util.c',
+        'dirent-util.c',
+        'efivars.c',
+        'env-file.c',
+        'env-util.c',
+        'errno-list.c',
+        'escape.c',
+        'ether-addr-util.c',
+        'extract-word.c',
+        'fd-util.c',
+        'fileio.c',
+        'filesystems.c',
+        'format-util.c',
+        'fs-util.c',
+        'glob-util.c',
+        'glyph-util.c',
+        'gunicode.c',
+        'hash-funcs.c',
+        'hashmap.c',
+        'hexdecoct.c',
+        'hmac.c',
+        'hostname-util.c',
+        'in-addr-util.c',
+        'initrd-util.c',
+        'inotify-util.c',
+        'io-util.c',
+        'ioprio-util.c',
+        'label.c',
+        'limits-util.c',
+        'locale-util.c',
+        'lock-util.c',
+        'log.c',
+        'login-util.c',
+        'memfd-util.c',
+        'memory-util.c',
+        'mempool.c',
+        'memstream-util.c',
+        'mkdir.c',
+        'mountpoint-util.c',
+        'namespace-util.c',
+        'nulstr-util.c',
+        'ordered-set.c',
+        'os-util.c',
+        'parse-util.c',
+        'path-lookup.c',
+        'path-util.c',
+        'percent-util.c',
+        'prioq.c',
+        'proc-cmdline.c',
+        'process-util.c',
+        'procfs-util.c',
+        'psi-util.c',
+        'random-util.c',
+        'ratelimit.c',
+        'recurse-dir.c',
+        'replace-var.c',
+        'rlimit-util.c',
+        'runtime-scope.c',
+        'sigbus.c',
+        'signal-util.c',
+        'siphash24.c',
+        'socket-util.c',
+        'sort-util.c',
+        'stat-util.c',
+        'strbuf.c',
+        'string-table.c',
+        'string-util.c',
+        'strv.c',
+        'strxcpyx.c',
+        'sync-util.c',
+        'sysctl-util.c',
+        'syslog-util.c',
+        'terminal-util.c',
+        'time-util.c',
+        'tmpfile-util.c',
+        'uid-alloc-range.c',
+        'uid-range.c',
+        'unit-def.c',
+        'unit-file.c',
+        'unit-name.c',
+        'user-util.c',
+        'utf8.c',
+        'virt.c',
+        'xattr-util.c',
+)
 
 missing_audit_h = files('missing_audit.h')
 missing_capability_h = files('missing_capability.h')
@@ -253,6 +109,27 @@ missing_socket_h = files('missing_socket.h')
 
 missing_syscall_def_h = files('missing_syscall_def.h')
 basic_sources += missing_syscall_def_h
+
+generate_af_list = find_program('generate-af-list.sh')
+af_list_txt = custom_target(
+        'af-list.txt',
+        output : 'af-list.txt',
+        command : [generate_af_list, cpp, config_h, missing_socket_h],
+        capture : true)
+
+generate_arphrd_list = find_program('generate-arphrd-list.sh')
+arphrd_list_txt = custom_target(
+        'arphrd-list.txt',
+        output : 'arphrd-list.txt',
+        command : [generate_arphrd_list, cpp, config_h],
+        capture : true)
+
+generate_cap_list = find_program('generate-cap-list.sh')
+cap_list_txt = custom_target(
+        'cap-list.txt',
+        output : 'cap-list.txt',
+        command : [generate_cap_list, cpp, config_h, missing_capability_h],
+        capture : true)
 
 generate_errno_list = find_program('generate-errno-list.sh')
 errno_list_txt = custom_target(
@@ -262,7 +139,10 @@ errno_list_txt = custom_target(
         capture : true)
 
 generated_gperf_headers = []
-foreach item : [['errno',  errno_list_txt,  'errno',      '']]
+foreach item : [['af',     af_list_txt,     'af',         ''],
+                ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_'],
+                ['cap',    cap_list_txt,    'capability', ''],
+                ['errno',  errno_list_txt,  'errno',      '']]
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
@@ -308,17 +188,21 @@ arch_list = [
         'arm64',
         'i386',
         'ia64',
+        'loongarch64',
         'm68k',
         'mips64',
         'mips64n32',
         'mipso32',
+        'parisc',
         'powerpc',
         'powerpc64',
+        'riscv32',
         'riscv64',
         's390',
         's390x',
         'sparc',
-        'x86_64']
+        'x86_64'
+]
 
 run_target(
         'update-syscall-tables',
@@ -341,18 +225,88 @@ run_target(
 
 ############################################################
 
+filesystem_includes = ['linux/magic.h',
+                       'linux/gfs2_ondisk.h']
+
+check_filesystems = find_program('check-filesystems.sh')
+r = run_command([check_filesystems, cpp, files('filesystems-gperf.gperf')] + filesystem_includes, check: false)
+if r.returncode() != 0
+        error('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
+endif
+
+filesystems_gperf_h = custom_target(
+        'filesystems-gperf.h',
+        input : 'filesystems-gperf.gperf',
+        output : 'filesystems-gperf.h',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generate_filesystem_list = find_program('generate-filesystem-list.py')
+fname = 'filesystem-list.h'
+filesystem_list_h = custom_target(
+        fname,
+        input : 'filesystems-gperf.gperf',
+        output : fname,
+        command : [generate_filesystem_list,
+                   '@INPUT@'],
+        capture : true)
+
+generate_filesystem_switch_case_h = find_program('generate-filesystem-switch-case.py')
+fname = 'filesystem-switch-case.h'
+filesystem_switch_case_h = custom_target(
+        fname,
+        input : 'filesystems-gperf.gperf',
+        output : 'filesystem-switch-case.h',
+        command : [generate_filesystem_switch_case_h,
+                   '@INPUT@'],
+        capture : true)
+
+basic_sources += [filesystem_list_h, filesystem_switch_case_h, filesystems_gperf_h]
+
 libbasic = static_library(
         'basic',
         basic_sources,
         fundamental_sources,
         include_directories : basic_includes,
-        dependencies : [versiondep,
-                        threads,
-                        libcap,
-                        libselinux,
+        dependencies : [libcap,
                         libm,
-                        libdl],
+                        threads,
+                        userspace,
+                        versiondep],
         c_args : ['-fvisibility=default'],
-        install : false)
+        build_by_default : false)
 
 ############################################################
+
+basic_gcrypt_sources = files(
+        'gcrypt-util.c',
+)
+
+# A convenience library that is separate from libbasic to avoid
+# unnecessary linking to libgcrypt.
+libbasic_gcrypt = static_library(
+        'basic-gcrypt',
+        basic_gcrypt_sources,
+        include_directories : basic_includes,
+        dependencies : [libgcrypt,
+                        userspace],
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)
+
+############################################################
+
+basic_compress_sources = files(
+        'compress.c',
+)
+
+# A convenience library that is separate from libbasic to avoid unnecessary
+# linking to the compression libraries.
+libbasic_compress = static_library(
+        'basic-compress',
+        basic_compress_sources,
+        include_directories : basic_includes,
+        dependencies : [liblz4,
+                        libxz,
+                        libzstd,
+                        userspace],
+        c_args : ['-fvisibility=default'],
+        build_by_default : false)

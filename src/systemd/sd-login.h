@@ -14,7 +14,7 @@
   Lesser General Public License for more details.
 
   You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
 #include <inttypes.h>
@@ -80,6 +80,18 @@ int sd_pid_get_machine_name(pid_t pid, char **machine);
  * hierarchy. */
 int sd_pid_get_cgroup(pid_t pid, char **cgroup);
 
+/* Equivalent to the corresponding sd_pid_get* functions, but take a
+ * PIDFD instead of a PID, to ensure there can be no possible PID
+ * recycle issues before/after the calls. */
+int sd_pidfd_get_session(pid_t pid, char **session);
+int sd_pidfd_get_owner_uid(pid_t pid, uid_t *uid);
+int sd_pidfd_get_unit(pid_t pid, char **unit);
+int sd_pidfd_get_user_unit(pid_t pid, char **unit);
+int sd_pidfd_get_slice(pid_t pid, char **slice);
+int sd_pidfd_get_user_slice(pid_t pid, char **slice);
+int sd_pidfd_get_machine_name(pid_t pid, char **machine);
+int sd_pidfd_get_cgroup(pid_t pid, char **cgroup);
+
 /* Similar to sd_pid_get_session(), but retrieves data about the peer
  * of a connected AF_UNIX socket */
 int sd_peer_get_session(int fd, char **session);
@@ -110,13 +122,16 @@ int sd_peer_get_machine_name(int fd, char **machine);
 
 /* Similar to sd_pid_get_cgroup(), but retrieves data about the peer
  * of a connected AF_UNIX socket. */
-int sd_peer_get_cgroup(pid_t pid, char **cgroup);
+int sd_peer_get_cgroup(int fd, char **cgroup);
 
 /* Get state from UID. Possible states: offline, lingering, online, active, closing */
 int sd_uid_get_state(uid_t uid, char **state);
 
 /* Return primary session of user, if there is any */
 int sd_uid_get_display(uid_t uid, char **session);
+
+/* Determine the login time of user */
+int sd_uid_get_login_time(uid_t uid, uint64_t *usec);
 
 /* Return 1 if UID has session on seat. If require_active is true, this will
  * look for active sessions only. */
@@ -145,8 +160,14 @@ int sd_session_get_state(const char *session, char **state);
 /* Determine user ID of session */
 int sd_session_get_uid(const char *session, uid_t *uid);
 
+/* Determine username of session */
+int sd_session_get_username(const char *session, char **username);
+
 /* Determine seat of session */
 int sd_session_get_seat(const char *session, char **seat);
+
+/* Determine the start time of session */
+int sd_session_get_start_time(const char *session, uint64_t *usec);
 
 /* Determine the (PAM) service name this session was registered by. */
 int sd_session_get_service(const char *session, char **service);
@@ -162,6 +183,9 @@ int sd_session_get_desktop(const char *session, char **desktop);
 
 /* Determine the X11 display of this session. */
 int sd_session_get_display(const char *session, char **display);
+
+/* Determine the leader process of this session. */
+int sd_session_get_leader(const char *session, pid_t *leader);
 
 /* Determine the remote host of this session. */
 int sd_session_get_remote_host(const char *session, char **remote_host);
@@ -180,7 +204,11 @@ int sd_seat_get_active(const char *seat, char **session, uid_t *uid);
 
 /* Return sessions and users on seat. Returns number of sessions.
  * If sessions is NULL, this returns only the number of sessions. */
-int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **uid, unsigned *n_uids);
+int sd_seat_get_sessions(
+                const char *seat,
+                char ***ret_sessions,
+                uid_t **ret_uids,
+                unsigned *ret_n_uids);
 
 /* Return whether the seat is multi-session capable */
 int sd_seat_can_multi_session(const char *seat) _sd_deprecated_;
@@ -195,7 +223,7 @@ int sd_seat_can_graphical(const char *seat);
 int sd_machine_get_class(const char *machine, char **clazz);
 
 /* Return the list if host-side network interface indices of a machine */
-int sd_machine_get_ifindices(const char *machine, int **ifindices);
+int sd_machine_get_ifindices(const char *machine, int **ret_ifindices);
 
 /* Get all seats, store in *seats. Returns the number of seats. If
  * seats is NULL, this only returns the number of seats. */

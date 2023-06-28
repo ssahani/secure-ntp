@@ -74,10 +74,13 @@ static inline bool FILE_SIZE_VALID_OR_INFINITY(uint64_t l) {
 
 }
 
-#define IOVEC_INIT(base, len) { .iov_base = (base), .iov_len = (len) }
-#define IOVEC_MAKE(base, len) (struct iovec) IOVEC_INIT(base, len)
-#define IOVEC_INIT_STRING(string) IOVEC_INIT((char*) string, strlen(string))
-#define IOVEC_MAKE_STRING(string) (struct iovec) IOVEC_INIT_STRING(string)
+#define IOVEC_NULL (struct iovec) {}
+#define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
+#define IOVEC_MAKE_STRING(string)               \
+        ({                                      \
+                char *_s = (char*) (string);    \
+                IOVEC_MAKE(_s, strlen(_s));     \
+        })
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
@@ -85,15 +88,25 @@ char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const ch
 struct iovec_wrapper {
         struct iovec *iovec;
         size_t count;
-        size_t size_bytes;
 };
 
 struct iovec_wrapper *iovw_new(void);
 struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw);
 struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw);
 void iovw_free_contents(struct iovec_wrapper *iovw, bool free_vectors);
+
 int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len);
+static inline int iovw_consume(struct iovec_wrapper *iovw, void *data, size_t len) {
+        /* Move data into iovw or free on error */
+        int r = iovw_put(iovw, data, len);
+        if (r < 0)
+                free(data);
+        return r;
+}
+
 int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value);
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value);
 void iovw_rebase(struct iovec_wrapper *iovw, char *old, char *new);
 size_t iovw_size(struct iovec_wrapper *iovw);
+
+void iovec_array_free(struct iovec *iov, size_t n);

@@ -4,25 +4,45 @@
 #include <sys/ioctl.h>
 #include <sys/mount.h>
 
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "missing_fs.h"
 #include "missing_magic.h"
+#include "missing_sched.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "user-util.h"
 
+const struct namespace_info namespace_info[] = {
+        [NAMESPACE_CGROUP] =  { "cgroup", "ns/cgroup", CLONE_NEWCGROUP,                          },
+        [NAMESPACE_IPC]    =  { "ipc",    "ns/ipc",    CLONE_NEWIPC,                             },
+        [NAMESPACE_NET]    =  { "net",    "ns/net",    CLONE_NEWNET,                             },
+        /* So, the mount namespace flag is called CLONE_NEWNS for historical
+         * reasons. Let's expose it here under a more explanatory name: "mnt".
+         * This is in-line with how the kernel exposes namespaces in /proc/$PID/ns. */
+        [NAMESPACE_MOUNT]  =  { "mnt",    "ns/mnt",    CLONE_NEWNS,                              },
+        [NAMESPACE_PID]    =  { "pid",    "ns/pid",    CLONE_NEWPID,                             },
+        [NAMESPACE_USER]   =  { "user",   "ns/user",   CLONE_NEWUSER,                            },
+        [NAMESPACE_UTS]    =  { "uts",    "ns/uts",    CLONE_NEWUTS,                             },
+        [NAMESPACE_TIME]   =  { "time",   "ns/time",   CLONE_NEWTIME,                            },
+        { /* Allow callers to iterate over the array without using _NAMESPACE_TYPE_MAX. */       },
+};
+
+#define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
+
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
-        _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, netnsfd = -1, usernsfd = -1;
-        int rfd = -1;
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF;
+        int rfd = -EBADF;
 
         assert(pid >= 0);
 
         if (mntns_fd) {
                 const char *mntns;
 
-                mntns = procfs_file_alloca(pid, "ns/mnt");
+                mntns = pid_namespace_path(pid, NAMESPACE_MOUNT);
                 mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (mntnsfd < 0)
                         return -errno;
@@ -31,7 +51,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (pidns_fd) {
                 const char *pidns;
 
-                pidns = procfs_file_alloca(pid, "ns/pid");
+                pidns = pid_namespace_path(pid, NAMESPACE_PID);
                 pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (pidnsfd < 0)
                         return -errno;
@@ -40,7 +60,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (netns_fd) {
                 const char *netns;
 
-                netns = procfs_file_alloca(pid, "ns/net");
+                netns = pid_namespace_path(pid, NAMESPACE_NET);
                 netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (netnsfd < 0)
                         return -errno;
@@ -49,7 +69,7 @@ int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *
         if (userns_fd) {
                 const char *userns;
 
-                userns = procfs_file_alloca(pid, "ns/user");
+                userns = pid_namespace_path(pid, NAMESPACE_USER);
                 usernsfd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
                 if (usernsfd < 0 && errno != ENOENT)
                         return -errno;
@@ -89,13 +109,11 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
                  * your own namespace, so check if namespaces are equal before attempting to enter. */
 
-                char userns_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-                xsprintf(userns_fd_path, "/proc/self/fd/%d", userns_fd);
-                r = files_same(userns_fd_path, "/proc/self/ns/user", 0);
+                r = inode_same_at(userns_fd, "", AT_FDCWD, "/proc/self/ns/user", AT_EMPTY_PATH);
                 if (r < 0)
                         return r;
                 if (r)
-                        userns_fd = -1;
+                        userns_fd = -EBADF;
         }
 
         if (pidns_fd >= 0)
@@ -172,14 +190,80 @@ int fd_is_ns(int fd, unsigned long nsflag) {
 }
 
 int detach_mount_namespace(void) {
-
-        /* Detaches the mount namespace, disabling propagation from our namespace to the host */
+        /* Detaches the mount namespace, disabling propagation from our namespace to the host. Sets
+         * propagation first to MS_SLAVE for all mounts (disabling propagation), and then back to MS_SHARED
+         * (so that we create a new peer group).  */
 
         if (unshare(CLONE_NEWNS) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to acquire mount namespace: %m");
 
         if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to set mount propagation to MS_SLAVE for all mounts: %m");
+
+        if (mount(NULL, "/", NULL, MS_SHARED | MS_REC, NULL) < 0)
+                return log_debug_errno(errno, "Failed to set mount propagation back to MS_SHARED for all mounts: %m");
 
         return 0;
+}
+
+int userns_acquire(const char *uid_map, const char *gid_map) {
+        char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -EBADF;
+        int r;
+
+        assert(uid_map);
+        assert(gid_map);
+
+        /* Forks off a process in a new userns, configures the specified uidmap/gidmap, acquires an fd to it,
+         * and then kills the process again. This way we have a userns fd that is not bound to any
+         * process. We can use that for file system mounts and similar. */
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        xsprintf(path, "/proc/" PID_FMT "/uid_map", pid);
+        r = write_string_file(path, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write UID map: %m");
+
+        xsprintf(path, "/proc/" PID_FMT "/gid_map", pid);
+        r = write_string_file(path, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write GID map: %m");
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open userns fd: %m");
+
+        return TAKE_FD(userns_fd);
+
+}
+
+int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
+        const char *ns_path;
+        struct stat ns_st1, ns_st2;
+
+        if (pid1 == 0)
+                pid1 = getpid_cached();
+
+        if (pid2 == 0)
+                pid2 = getpid_cached();
+
+        if (pid1 == pid2)
+                return 1;
+
+        ns_path = pid_namespace_path(pid1, type);
+        if (stat(ns_path, &ns_st1) < 0)
+                return -errno;
+
+        ns_path = pid_namespace_path(pid2, type);
+        if (stat(ns_path, &ns_st2) < 0)
+                return -errno;
+
+        return stat_inode_same(&ns_st1, &ns_st2);
 }

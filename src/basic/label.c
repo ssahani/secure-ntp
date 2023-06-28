@@ -1,88 +1,30 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <stddef.h>
 
-#include "fs-util.h"
 #include "label.h"
-#include "macro.h"
-#include "selinux-util.h"
-#include "smack-util.h"
 
-int label_fix_container(const char *path, const char *inside_path, LabelFixFlags flags) {
-        int r, q;
+static const LabelOps *label_ops = NULL;
 
-        r = mac_selinux_fix_container(path, inside_path, flags);
-        q = mac_smack_fix_container(path, inside_path, flags);
+int label_ops_set(const LabelOps *ops) {
+        if (label_ops)
+                return -EBUSY;
 
-        if (r < 0)
-                return r;
-        if (q < 0)
-                return q;
-
+        label_ops = ops;
         return 0;
 }
 
-int symlink_label(const char *old_path, const char *new_path) {
-        int r;
+int label_ops_pre(int dir_fd, const char *path, mode_t mode) {
+        if (!label_ops || !label_ops->pre)
+                return 0;
 
-        assert(old_path);
-        assert(new_path);
-
-        r = mac_selinux_create_file_prepare(new_path, S_IFLNK);
-        if (r < 0)
-                return r;
-
-        if (symlink(old_path, new_path) < 0)
-                r = -errno;
-
-        mac_selinux_create_file_clear();
-
-        if (r < 0)
-                return r;
-
-        return mac_smack_fix(new_path, 0);
+        return label_ops->pre(dir_fd, path, mode);
 }
 
-int symlink_atomic_label(const char *from, const char *to) {
-        int r;
+int label_ops_post(int dir_fd, const char *path) {
+        if (!label_ops || !label_ops->post)
+                return 0;
 
-        assert(from);
-        assert(to);
-
-        r = mac_selinux_create_file_prepare(to, S_IFLNK);
-        if (r < 0)
-                return r;
-
-        if (symlink_atomic(from, to) < 0)
-                r = -errno;
-
-        mac_selinux_create_file_clear();
-
-        if (r < 0)
-                return r;
-
-        return mac_smack_fix(to, 0);
+        return label_ops->post(dir_fd, path);
 }
-
-int mknod_label(const char *pathname, mode_t mode, dev_t dev) {
-        int r;
-
-        assert(pathname);
-
-        r = mac_selinux_create_file_prepare(pathname, mode);
-        if (r < 0)
-                return r;
-
-        if (mknod(pathname, mode, dev) < 0)
-                r = -errno;
-
-        mac_selinux_create_file_clear();
-
-        if (r < 0)
-                return r;
-
-        return mac_smack_fix(pathname, 0);
-}
-

@@ -7,7 +7,6 @@
 
 #include "hash-funcs.h"
 #include "macro.h"
-#include "util.h"
 
 /*
  * A hash table implementation. As a minor optimization a NULL hashmap object
@@ -51,6 +50,7 @@ typedef struct {
 
 #define _IDX_ITERATOR_FIRST (UINT_MAX - 1)
 #define ITERATOR_FIRST ((Iterator) { .idx = _IDX_ITERATOR_FIRST, .next_key = NULL })
+#define ITERATOR_IS_FIRST(i) ((i).idx == _IDX_ITERATOR_FIRST)
 
 /* Macros for type checking */
 #define PTR_COMPATIBLE_WITH_HASHMAP_BASE(h) \
@@ -89,12 +89,7 @@ OrderedHashmap* _ordered_hashmap_new(const struct hash_ops *hash_ops  HASHMAP_DE
 #define ordered_hashmap_new(ops) _ordered_hashmap_new(ops  HASHMAP_DEBUG_SRC_ARGS)
 
 #define hashmap_free_and_replace(a, b)          \
-        ({                                      \
-                hashmap_free(a);                \
-                (a) = (b);                      \
-                (b) = NULL;                     \
-                0;                              \
-        })
+        free_and_replace_full(a, b, hashmap_free)
 
 HashmapBase* _hashmap_free(HashmapBase *h, free_func_t default_free_key, free_func_t default_free_value);
 static inline Hashmap* hashmap_free(Hashmap *h) {
@@ -223,7 +218,7 @@ static inline int ordered_hashmap_remove_and_replace(OrderedHashmap *h, const vo
         return hashmap_remove_and_replace(PLAIN_HASHMAP(h), old_key, new_key, value);
 }
 
-/* Since merging data from a OrderedHashmap into a Hashmap or vice-versa
+/* Since merging data from an OrderedHashmap into a Hashmap or vice-versa
  * should just work, allow this by having looser type-checking here. */
 int _hashmap_merge(Hashmap *h, Hashmap *other);
 #define hashmap_merge(h, other) _hashmap_merge(PLAIN_HASHMAP(h), PLAIN_HASHMAP(other))
@@ -371,28 +366,26 @@ static inline void *ordered_hashmap_first_key(OrderedHashmap *h) {
         return _hashmap_first_key(HASHMAP_BASE(h), false);
 }
 
-#define hashmap_clear_with_destructor(_s, _f)                   \
+#define hashmap_clear_with_destructor(h, f)                     \
         ({                                                      \
+                Hashmap *_h = (h);                              \
                 void *_item;                                    \
-                while ((_item = hashmap_steal_first(_s)))       \
-                        _f(_item);                              \
+                while ((_item = hashmap_steal_first(_h)))       \
+                        f(_item);                               \
+                _h;                                             \
         })
-#define hashmap_free_with_destructor(_s, _f)                    \
-        ({                                                      \
-                hashmap_clear_with_destructor(_s, _f);          \
-                hashmap_free(_s);                               \
-        })
-#define ordered_hashmap_clear_with_destructor(_s, _f)                   \
+#define hashmap_free_with_destructor(h, f)                      \
+        hashmap_free(hashmap_clear_with_destructor(h, f))
+#define ordered_hashmap_clear_with_destructor(h, f)                     \
         ({                                                              \
+                OrderedHashmap *_h = (h);                               \
                 void *_item;                                            \
-                while ((_item = ordered_hashmap_steal_first(_s)))       \
-                        _f(_item);                                      \
+                while ((_item = ordered_hashmap_steal_first(_h)))       \
+                        f(_item);                                       \
+                _h;                                                     \
         })
-#define ordered_hashmap_free_with_destructor(_s, _f)                    \
-        ({                                                              \
-                ordered_hashmap_clear_with_destructor(_s, _f);          \
-                ordered_hashmap_free(_s);                               \
-        })
+#define ordered_hashmap_free_with_destructor(h, f)                      \
+        ordered_hashmap_free(ordered_hashmap_clear_with_destructor(h, f))
 
 /* no hashmap_next */
 void* ordered_hashmap_next(OrderedHashmap *h, const void *key);
@@ -450,3 +443,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(IteratedCache*, iterated_cache_free);
 
 #define _cleanup_iterated_cache_free_ _cleanup_(iterated_cache_freep)
+
+void hashmap_trim_pools(void);

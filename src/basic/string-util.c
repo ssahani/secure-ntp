@@ -9,16 +9,18 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "memstream-util.h"
+#include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "utf8.h"
-#include "util.h"
 
 char* first_word(const char *s, const char *word) {
         size_t sl, wl;
@@ -169,10 +171,15 @@ char *delete_trailing_chars(char *s, const char *bad) {
         return s;
 }
 
-char *truncate_nl(char *s) {
+char *truncate_nl_full(char *s, size_t *ret_len) {
+        size_t n;
+
         assert(s);
 
-        s[strcspn(s, NEWLINE)] = 0;
+        n = strcspn(s, NEWLINE);
+        s[n] = '\0';
+        if (ret_len)
+                *ret_len = n;
         return s;
 }
 
@@ -521,8 +528,21 @@ char* strshorten(char *s, size_t l) {
         return s;
 }
 
+int strgrowpad0(char **s, size_t l) {
+        assert(s);
+
+        char *q = realloc(*s, l);
+        if (!q)
+                return -ENOMEM;
+        *s = q;
+
+        size_t sz = strlen(*s);
+        memzero(*s + sz, l - sz);
+        return 0;
+}
+
 char *strreplace(const char *text, const char *old_string, const char *new_string) {
-        size_t l, old_len, new_len, allocated = 0;
+        size_t l, old_len, new_len;
         char *t, *ret = NULL;
         const char *f;
 
@@ -536,7 +556,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         new_len = strlen(new_string);
 
         l = strlen(text);
-        if (!GREEDY_REALLOC(ret, allocated, l+1))
+        if (!GREEDY_REALLOC(ret, l+1))
                 return NULL;
 
         f = text;
@@ -552,7 +572,7 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
                 d = t - ret;
                 nl = l - old_len + new_len;
 
-                if (!GREEDY_REALLOC(ret, allocated, nl + 1))
+                if (!GREEDY_REALLOC(ret, nl + 1))
                         return mfree(ret);
 
                 l = nl;
@@ -591,8 +611,8 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 STATE_CSI,
                 STATE_CSO,
         } state = STATE_OTHER;
-        char *obuf = NULL;
-        size_t osz = 0, isz, shift[2] = {}, n_carriage_returns = 0;
+        _cleanup_(memstream_done) MemStream m = {};
+        size_t isz, shift[2] = {}, n_carriage_returns = 0;
         FILE *f;
 
         assert(ibuf);
@@ -616,7 +636,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
         /* Note we turn off internal locking on f for performance reasons. It's safe to do so since we
          * created f here and it doesn't leave our scope. */
-        f = open_memstream_unlocked(&obuf, &osz);
+        f = memstream_init(&m);
         if (!f)
                 return NULL;
 
@@ -701,16 +721,11 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 }
         }
 
-        if (fflush_and_check(f) < 0) {
-                fclose(f);
-                return mfree(obuf);
-        }
-        fclose(f);
+        char *obuf;
+        if (memstream_finalize(&m, &obuf, _isz) < 0)
+                return NULL;
 
         free_and_replace(*ibuf, obuf);
-
-        if (_isz)
-                *_isz = osz;
 
         if (highlight) {
                 highlight[0] += shift[0];
@@ -790,8 +805,8 @@ char *strextend_with_separator_internal(char **x, const char *separator, ...) {
         return p;
 }
 
-int strextendf(char **x, const char *format, ...) {
-        size_t m, a;
+int strextendf_with_separator(char **x, const char *separator, const char *format, ...) {
+        size_t m, a, l_separator;
         va_list ap;
         int l;
 
@@ -802,42 +817,47 @@ int strextendf(char **x, const char *format, ...) {
         assert(x);
         assert(format);
 
+        l_separator = isempty(*x) ? 0 : strlen_ptr(separator);
+
         /* Let's try to use the allocated buffer, if there's room at the end still. Otherwise let's extend by 64 chars. */
         if (*x) {
                 m = strlen(*x);
-                a = malloc_usable_size(*x);
+                a = MALLOC_SIZEOF_SAFE(*x);
                 assert(a >= m + 1);
         } else
                 m = a = 0;
 
-        if (a - m < 17) { /* if there's less than 16 chars space, then enlarge the buffer first */
+        if (a - m < 17 + l_separator) { /* if there's less than 16 chars space, then enlarge the buffer first */
                 char *n;
 
-                if (_unlikely_(m > SIZE_MAX - 64)) /* overflow check */
+                if (_unlikely_(l_separator > SIZE_MAX - 64)) /* overflow check #1 */
+                        return -ENOMEM;
+                if (_unlikely_(m > SIZE_MAX - 64 - l_separator)) /* overflow check #2 */
                         return -ENOMEM;
 
-                n = realloc(*x, m + 64);
+                n = realloc(*x, m + 64 + l_separator);
                 if (!n)
                         return -ENOMEM;
 
                 *x = n;
-                a = malloc_usable_size(*x);
+                a = MALLOC_SIZEOF_SAFE(*x);
         }
 
         /* Now, let's try to format the string into it */
+        memcpy_safe(*x + m, separator, l_separator);
         va_start(ap, format);
-        l = vsnprintf(*x + m, a - m, format, ap);
+        l = vsnprintf(*x + m + l_separator, a - m - l_separator, format, ap);
         va_end(ap);
 
         assert(l >= 0);
 
-        if ((size_t) l < a - m) {
+        if ((size_t) l < a - m - l_separator) {
                 char *n;
 
                 /* Nice! This worked. We are done. But first, let's return the extra space we don't
                  * need. This should be a cheap operation, since we only lower the allocation size here,
                  * never increase. */
-                n = realloc(*x, m + (size_t) l + 1);
+                n = realloc(*x, m + (size_t) l + l_separator + 1);
                 if (n)
                         *x = n;
         } else {
@@ -845,22 +865,22 @@ int strextendf(char **x, const char *format, ...) {
 
                 /* Wasn't enough. Then let's allocate exactly what we need. */
 
-                if (_unlikely_((size_t) l > SIZE_MAX - 1)) /* overflow check #1 */
+                if (_unlikely_((size_t) l > SIZE_MAX - (l_separator + 1))) /* overflow check #1 */
                         goto oom;
-                if (_unlikely_(m > SIZE_MAX - ((size_t) l + 1))) /* overflow check #2 */
+                if (_unlikely_(m > SIZE_MAX - ((size_t) l + l_separator + 1))) /* overflow check #2 */
                         goto oom;
 
-                a = m + (size_t) l + 1;
+                a = m + (size_t) l + l_separator + 1;
                 n = realloc(*x, a);
                 if (!n)
                         goto oom;
                 *x = n;
 
                 va_start(ap, format);
-                l = vsnprintf(*x + m, a - m, format, ap);
+                l = vsnprintf(*x + m + l_separator, a - m - l_separator, format, ap);
                 va_end(ap);
 
-                assert((size_t) l < a - m);
+                assert((size_t) l < a - m - l_separator);
         }
 
         return 0;
@@ -938,8 +958,7 @@ int free_and_strdup(char **p, const char *s) {
         } else
                 t = NULL;
 
-        free(*p);
-        *p = t;
+        free_and_replace(*p, t);
 
         return 1;
 }
@@ -1140,4 +1159,155 @@ int string_contains_word_strv(const char *string, const char *separators, char *
         if (ret_word)
                 *ret_word = found;
         return !!found;
+}
+
+bool streq_skip_trailing_chars(const char *s1, const char *s2, const char *ok) {
+        if (!s1 && !s2)
+                return true;
+        if (!s1 || !s2)
+                return false;
+
+        if (!ok)
+                ok = WHITESPACE;
+
+        for (; *s1 && *s2; s1++, s2++)
+                if (*s1 != *s2)
+                        break;
+
+        return in_charset(s1, ok) && in_charset(s2, ok);
+}
+
+char *string_replace_char(char *str, char old_char, char new_char) {
+        assert(str);
+        assert(old_char != '\0');
+        assert(new_char != '\0');
+        assert(old_char != new_char);
+
+        for (char *p = strchr(str, old_char); p; p = strchr(p + 1, old_char))
+                *p = new_char;
+
+        return str;
+}
+
+int make_cstring(const char *s, size_t n, MakeCStringMode mode, char **ret) {
+        char *b;
+
+        assert(s || n == 0);
+        assert(mode >= 0);
+        assert(mode < _MAKE_CSTRING_MODE_MAX);
+
+        /* Converts a sized character buffer into a NUL-terminated NUL string, refusing if there are embedded
+         * NUL bytes. Whether to expect a trailing NUL byte can be specified via 'mode' */
+
+        if (n == 0) {
+                if (mode == MAKE_CSTRING_REQUIRE_TRAILING_NUL)
+                        return -EINVAL;
+
+                if (!ret)
+                        return 0;
+
+                b = new0(char, 1);
+        } else {
+                const char *nul;
+
+                nul = memchr(s, 0, n);
+                if (nul) {
+                        if (nul < s + n - 1 || /* embedded NUL? */
+                            mode == MAKE_CSTRING_REFUSE_TRAILING_NUL)
+                                return -EINVAL;
+
+                        n--;
+                } else if (mode == MAKE_CSTRING_REQUIRE_TRAILING_NUL)
+                        return -EINVAL;
+
+                if (!ret)
+                        return 0;
+
+                b = memdup_suffix0(s, n);
+        }
+        if (!b)
+                return -ENOMEM;
+
+        *ret = b;
+        return 0;
+}
+
+size_t strspn_from_end(const char *str, const char *accept) {
+        size_t n = 0;
+
+        if (isempty(str))
+                return 0;
+
+        if (isempty(accept))
+                return 0;
+
+        for (const char *p = str + strlen(str); p > str && strchr(accept, p[-1]); p--)
+                n++;
+
+        return n;
+}
+
+char *strdupspn(const char *a, const char *accept) {
+        if (isempty(a) || isempty(accept))
+                return strdup("");
+
+        return strndup(a, strspn(a, accept));
+}
+
+char *strdupcspn(const char *a, const char *reject) {
+        if (isempty(a))
+                return strdup("");
+        if (isempty(reject))
+                return strdup(a);
+
+        return strndup(a, strcspn(a, reject));
+}
+
+char *find_line_startswith(const char *haystack, const char *needle) {
+        char *p;
+
+        assert(haystack);
+        assert(needle);
+
+        /* Finds the first line in 'haystack' that starts with the specified string. Returns a pointer to the
+         * first character after it */
+
+        p = strstr(haystack, needle);
+        if (!p)
+                return NULL;
+
+        if (p > haystack)
+                while (p[-1] != '\n') {
+                        p = strstr(p + 1, needle);
+                        if (!p)
+                                return NULL;
+                }
+
+        return p + strlen(needle);
+}
+
+char *startswith_strv(const char *string, char **strv) {
+        char *found = NULL;
+
+        STRV_FOREACH(i, strv) {
+                found = startswith(string, *i);
+                if (found)
+                        break;
+        }
+
+        return found;
+}
+
+bool version_is_valid(const char *s) {
+        if (isempty(s))
+                return false;
+
+        if (!filename_part_is_valid(s))
+                return false;
+
+        /* This is a superset of the characters used by semver. We additionally allow "," and "_". */
+        if (!in_charset(s, ALPHANUMERICAL ".,_-+"))
+                return false;
+
+        return true;
 }

@@ -1,10 +1,53 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-id128_sources = files('''
-        sd-id128/id128-util.c
-        sd-id128/id128-util.h
-        sd-id128/sd-id128.c
-'''.split())
+sd_journal_sources = files(
+        'sd-journal/audit-type.c',
+        'sd-journal/catalog.c',
+        'sd-journal/journal-file.c',
+        'sd-journal/journal-send.c',
+        'sd-journal/journal-vacuum.c',
+        'sd-journal/journal-verify.c',
+        'sd-journal/lookup3.c',
+        'sd-journal/mmap-cache.c',
+        'sd-journal/sd-journal.c',
+)
+
+if conf.get('HAVE_GCRYPT') == 1
+        sd_journal_sources += files(
+                'sd-journal/fsprg.c',
+                'sd-journal/journal-authenticate.c',
+        )
+endif
+
+audit_type_includes = [config_h,
+                       missing_audit_h,
+                       'linux/audit.h']
+if conf.get('HAVE_AUDIT') == 1
+        audit_type_includes += 'libaudit.h'
+endif
+
+generate_audit_type_list = find_program('sd-journal/generate-audit_type-list.sh')
+audit_type_list_txt = custom_target(
+        'audit_type-list.txt',
+        output : 'audit_type-list.txt',
+        command : [generate_audit_type_list, cpp] + audit_type_includes,
+        capture : true)
+
+audit_type_to_name = custom_target(
+        'audit_type-to-name.h',
+        input : ['sd-journal/audit_type-to-name.awk', audit_type_list_txt],
+        output : 'audit_type-to-name.h',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+sd_journal_sources += [audit_type_to_name]
+
+############################################################
+
+id128_sources = files(
+        'sd-id128/id128-util.c',
+        'sd-id128/sd-id128.c',
+)
 
 ############################################################
 
@@ -12,12 +55,10 @@ sd_daemon_sources = files('sd-daemon/sd-daemon.c')
 
 ############################################################
 
-sd_event_sources = files('''
-        sd-event/event-source.h
-        sd-event/event-util.c
-        sd-event/event-util.h
-        sd-event/sd-event.c
-'''.split())
+sd_event_sources = files(
+        'sd-event/event-util.c',
+        'sd-event/sd-event.c',
+)
 
 ############################################################
 
@@ -25,32 +66,70 @@ sd_login_sources = files('sd-login/sd-login.c')
 
 ############################################################
 
-libsystemd_sources = files('''
-        sd-network/network-util.c
-        sd-network/network-util.h
-        sd-network/sd-network.c
-        sd-resolve/resolve-private.h
-        sd-resolve/sd-resolve.c
-'''.split()) + sd_daemon_sources + sd_event_sources + id128_sources + sd_login_sources
+libsystemd_sources = files(
+        'sd-bus/bus-common-errors.c',
+        'sd-bus/bus-container.c',
+        'sd-bus/bus-control.c',
+        'sd-bus/bus-convenience.c',
+        'sd-bus/bus-creds.c',
+        'sd-bus/bus-dump.c',
+        'sd-bus/bus-error.c',
+        'sd-bus/bus-internal.c',
+        'sd-bus/bus-introspect.c',
+        'sd-bus/bus-kernel.c',
+        'sd-bus/bus-match.c',
+        'sd-bus/bus-message.c',
+        'sd-bus/bus-objects.c',
+        'sd-bus/bus-signature.c',
+        'sd-bus/bus-slot.c',
+        'sd-bus/bus-socket.c',
+        'sd-bus/bus-track.c',
+        'sd-bus/bus-type.c',
+        'sd-bus/sd-bus.c',
+        'sd-device/device-enumerator.c',
+        'sd-device/device-filter.c',
+        'sd-device/device-monitor.c',
+        'sd-device/device-private.c',
+        'sd-device/device-util.c',
+        'sd-device/sd-device.c',
+        'sd-hwdb/sd-hwdb.c',
+        'sd-netlink/netlink-genl.c',
+        'sd-netlink/netlink-message-nfnl.c',
+        'sd-netlink/netlink-message-rtnl.c',
+        'sd-netlink/netlink-message.c',
+        'sd-netlink/netlink-slot.c',
+        'sd-netlink/netlink-socket.c',
+        'sd-netlink/netlink-types-genl.c',
+        'sd-netlink/netlink-types-nfnl.c',
+        'sd-netlink/netlink-types-rtnl.c',
+        'sd-netlink/netlink-types.c',
+        'sd-netlink/netlink-util.c',
+        'sd-netlink/sd-netlink.c',
+        'sd-network/network-util.c',
+        'sd-network/sd-network.c',
+        'sd-path/sd-path.c',
+        'sd-resolve/sd-resolve.c',
+) + sd_journal_sources + id128_sources + sd_daemon_sources + sd_event_sources + sd_login_sources
 
-disable_mempool_c = files('disable-mempool.c')
 
 libsystemd_c_args = ['-fvisibility=default']
 
 libsystemd_static = static_library(
         'systemd_static',
         libsystemd_sources,
-        install : false,
         include_directories : libsystemd_includes,
-        link_with : libbasic,
+        c_args : libsystemd_c_args,
+        link_with : [libbasic,
+                     libbasic_compress],
         dependencies : [threads,
-                        librt],
-        c_args : libsystemd_c_args)
+                        librt,
+                        userspace],
+        build_by_default : false)
+
+libsystemd_dir_path = meson.current_source_dir()
 
 libsystemd_sym = files('libsystemd.sym')
-libsystemd_sym_path = join_paths(meson.current_source_dir(), 'libsystemd.sym')
+libsystemd_sym_path = libsystemd_dir_path / 'libsystemd.sym'
 
 static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
-
-############################################################

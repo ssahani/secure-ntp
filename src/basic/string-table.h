@@ -95,6 +95,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,)  \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,)
+#define DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_FALLBACK(name,type,max) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,)
 
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max) \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,static)
@@ -113,4 +114,4 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                         fputc_unlocked('\n', stdout);                   \
                 }                                                       \
                 funlockfile(stdout);                                    \
-        } while(false)
+        } while (false)
