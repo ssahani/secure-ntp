@@ -66,9 +66,39 @@ Dependencies
   * gcc, awk, sed, grep, m4, and similar tools
 
 To build in directory build/:
-    - ```rm -rf build;meson setup build;make```
+```
+  ❯ rm -rf build;meson setup build;
+  ❯ make
+  ❯ sudo make install
+```
 
-    - ```sudo make install```
+```
+❯ systemctl daemon-reload
+❯ systemctl start nts-timesyncd.service
+```
+
+```
+❯ sudo systemctl status nts-timesyncd.service 
+● nts-timesyncd.service - Network Time Synchronization using ntpsec
+     Loaded: loaded (/usr/lib/systemd/system/nts-timesyncd.service; disabled; preset: disabled)
+    Drop-In: /usr/lib/systemd/system/service.d
+             └─10-timeout-abort.conf
+     Active: active (running) since Wed 2023-06-28 21:46:26 IST; 4s ago
+       Docs: man:nts-timesyncd.service.service(8)
+   Main PID: 589228 (nts-timesyncd)
+     Status: "Initial synchronization to time server [2a01:3f7:3:51::5]:123 (2a01:3f7:3:51::5)."
+      Tasks: 2 (limit: 15145)
+     Memory: 15.0M
+        CPU: 136ms
+     CGroup: /system.slice/nts-timesyncd.service
+             └─589228 /usr/bin/nts-timesyncd
+
+Jun 28 21:46:26 Zeus systemd[1]: Starting nts-timesyncd.service - Network Time Synchronization using ntpsec...
+Jun 28 21:46:26 Zeus systemd[1]: Started nts-timesyncd.service - Network Time Synchronization using ntpsec.
+Jun 28 21:46:27 Zeus nts-timesyncd[589228]: Initial synchronization to time server [2a01:3f7:3:51::5]:123 (2a01:3f7:3:51::5).
+                                                                                                                           
+```
+
 
 Example configration
 ------------
@@ -81,7 +111,6 @@ Example configration
 ```
 
 ```
-
 [Time]
 NetworkTimeSecurityServer=time.cloudflare.com nts.sth1.ntp.se nts.netnod.se
 #NTP=
@@ -91,4 +120,3 @@ NetworkTimeSecurityServer=time.cloudflare.com nts.sth1.ntp.se nts.netnod.se
 #PollIntervalMaxSec=2048
 
 ```
-``
