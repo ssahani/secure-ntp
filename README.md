@@ -34,15 +34,15 @@ RFC: https://datatracker.ietf.org/doc/html/rfc8915 using GnuTls
 https://www.gnutls.org/
 
 To contribute to nts-timesyncd, fork the current source code from github:
-  https://github.com/nts-timesyncd/nts-timesyncd
+https://github.com/ssahani/secure-ntp
 Send a pull request for the changes you like.
 
 If you do not have a github account, the nts-timesyncd wiki page at
-  https://github.com/nts-timesyncd/nts-timesyncd/wiki
+ https://github.com/ssahani/secure-ntp/wiki
 lists further possibilities to contact the maintainers.
 
 Finally, bug reports:
-  https://github.com/nts-timesyncd/nts-timesyncd/issues
+  https://github.com/ssahani/secure-ntp/issues
 
 #### License
 =======
