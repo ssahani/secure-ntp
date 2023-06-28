@@ -67,6 +67,7 @@ Dependencies
 
 To build in directory build/:
     - ```rm -rf build;meson setup build;make```
+
     - ```sudo make install```
 
 Example configration

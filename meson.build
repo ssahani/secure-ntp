@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('nts-timesync', 'c',
-        version : '0.1',
+        version : '0.2',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
