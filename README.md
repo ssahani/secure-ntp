@@ -17,13 +17,10 @@ cookies, which are encrypted and contain the keys needed to authenticate the NTP
 Privacy is one of the goals of NTS. The client gets a new cookie with each server response,
 so it doesn’t have to reuse cookies. This prevents passive observers from tracking clients migrating between networks.
 
-
-All of the credit for etimesyncd should go to the systemd developers.
-For more on systemd, see
-  http://www.freedesktop.org/wiki/Software/systemd
+All of the credit for nts-timesyncd should go to the systemd developers.
+For more on systemd, see http://www.freedesktop.org/wiki/Software/systemd
 All of the blame should go to Andy Wingo, who extracted etimesyncd
-from systemd.
-All complaints should go to Sven Eden, who is maintaining etimesyncd.
+from systemd. All complaints should go to Susant Sahani, who is maintaining timesyncd.
 
 #### Contributing
 ============
